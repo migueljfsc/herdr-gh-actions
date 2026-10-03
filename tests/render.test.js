@@ -10,6 +10,7 @@ test('fmtDuration', () => {
   assert.equal(fmtDuration(125000), '2m');
   assert.equal(fmtDuration(125000, true), '2m05s');
   assert.equal(fmtDuration(3725000), '1h02m');
+  assert.equal(fmtDuration(25 * 3600000 + 59000), '1d01h');
   assert.equal(fmtDuration(-1), '0s');
 });
 
@@ -106,22 +107,45 @@ test('followSelection keeps selection in view', () => {
   assert.equal(followSelection(4, 2, 5), 2);
 });
 
-test('buildItems flattens expanded runs/jobs/steps and marks HEAD', async () => {
+test('buildItems: commits → runs → jobs → steps, HEAD marked, collapsed commits hide runs', async () => {
   const { buildItems } = await import('../lib/render.js');
   const now = Date.parse('2026-10-03T12:10:00Z');
   const runs = [
-    { databaseId: 1, status: 'completed', conclusion: 'failure', headSha: 'abcdef123', workflowName: 'CI', displayTitle: 'msg', event: 'push', createdAt: '2026-10-03T12:00:00Z', updatedAt: '2026-10-03T12:02:05Z' },
-    { databaseId: 2, status: 'in_progress', conclusion: null, headSha: 'zzz', workflowName: 'Deploy', displayTitle: 'm2', event: 'push', createdAt: '2026-10-03T12:08:00Z' },
+    { databaseId: 1, status: 'completed', conclusion: 'failure', headSha: 'abcdef123', workflowName: 'ci', displayTitle: 'fix: thing', event: 'push', createdAt: '2026-10-03T12:00:00Z', updatedAt: '2026-10-03T12:02:05Z' },
+    { databaseId: 3, status: 'completed', conclusion: 'success', headSha: 'abcdef123', workflowName: 'publish', displayTitle: 'publish', event: 'workflow_dispatch', createdAt: '2026-10-03T12:05:00Z', updatedAt: '2026-10-03T12:06:00Z' },
+    { databaseId: 2, status: 'completed', conclusion: 'success', headSha: 'zzz9999', workflowName: 'ci', displayTitle: 'feat: older', event: 'push', createdAt: '2026-10-03T11:00:00Z', updatedAt: '2026-10-03T11:01:00Z' },
   ];
   const jobs = [
     { databaseId: 10, name: 'test', status: 'completed', conclusion: 'failure', startedAt: '2026-10-03T12:00:05Z', completedAt: '2026-10-03T12:01:05Z', steps: [{ number: 1, name: 'Set up', status: 'completed', conclusion: 'success' }] },
   ];
-  const items = buildItems({ runs, jobsByRun: new Map([[1, { jobs }]]), expandedRuns: new Set([1, 2]), expandedJobs: new Set([10]), head: 'abcdef123', now });
-  assert.deepEqual(items.map((i) => i.key), ['run:1', 'job:10', 'step:10:1', 'run:2', 'note:2']);
-  assert.equal(items[0].meta, 'push · abcdef1 (HEAD) · 2m05s · 7m ago');
-  assert.equal(items[1].meta, '1m00s');
-  assert.equal(items[3].meta, 'push · zzz · 2m');
-  assert.equal(items[4].label, 'loading jobs…');
+  const items = buildItems({
+    runs,
+    jobsByRun: new Map([[1, { jobs }]]),
+    expandedCommits: new Set(['abcdef123']),
+    expandedRuns: new Set([1, 2]),
+    expandedJobs: new Set([10]),
+    head: 'abcdef123',
+    now,
+  });
+  assert.deepEqual(items.map((i) => i.key), ['commit:abcdef123', 'run:3', 'run:1', 'job:10', 'step:10:1', 'commit:zzz9999']);
+  assert.equal(items[0].label, 'abcdef1 (HEAD) · fix: thing');
+  assert.deepEqual(items[0].glyph, ['✗', '31']);
+  assert.equal(items[0].meta, 'workflow_dispatch · 4m ago');
+  assert.equal(items[1].meta, 'workflow_dispatch · 1m00s');
+  assert.equal(items[2].meta, '2m05s');
+  assert.deepEqual([items[3].depth, items[4].depth], [2, 3]);
+  assert.equal(items[5].label, 'zzz9999 · feat: older');
+});
+
+test('buildItems: commitLimit caps commits; running commit shows elapsed', async () => {
+  const { buildItems } = await import('../lib/render.js');
+  const now = Date.parse('2026-10-03T12:10:00Z');
+  const mk = (id, sha, over = {}) => ({ databaseId: id, status: 'completed', conclusion: 'success', headSha: sha, workflowName: 'ci', displayTitle: sha, event: 'push', createdAt: `2026-10-03T1${id}:00:00Z`, updatedAt: `2026-10-03T1${id}:01:00Z`, ...over });
+  const runs = [mk(1, 'a'), mk(2, 'b'), mk(3, 'c', { status: 'in_progress', conclusion: null, createdAt: '2026-10-03T12:07:00Z' })];
+  const items = buildItems({ runs, jobsByRun: new Map(), expandedCommits: new Set(), expandedRuns: new Set(), expandedJobs: new Set(), head: null, now, commitLimit: 2 });
+  assert.deepEqual(items.map((i) => i.key), ['commit:c', 'commit:b']);
+  assert.equal(items[0].meta, 'push · 3m');
+  assert.deepEqual(items[0].glyph, ['◌', '33']);
 });
 
 test('picker view and confirm prompt render at exact size', () => {
@@ -140,6 +164,14 @@ test('re-run row shows attempt and times the latest attempt', async () => {
   const { buildItems } = await import('../lib/render.js');
   const now = Date.parse('2026-10-03T12:10:00Z');
   const runs = [{ databaseId: 1, status: 'completed', conclusion: 'success', headSha: 'abc', workflowName: 'ci', displayTitle: 't', event: 'push', attempt: 2, createdAt: '2026-10-03T11:00:00Z', startedAt: '2026-10-03T12:00:00Z', updatedAt: '2026-10-03T12:00:16Z' }];
-  const [row] = buildItems({ runs, jobsByRun: new Map(), expandedRuns: new Set(), expandedJobs: new Set(), head: 'x', now });
-  assert.equal(row.meta, 'push · abc · attempt 2 · 16s · 9m ago');
+  const [, row] = buildItems({ runs, jobsByRun: new Map(), expandedCommits: new Set(['abc']), expandedRuns: new Set(), expandedJobs: new Set(), head: 'x', now });
+  assert.equal(row.meta, 'attempt 2 · 16s');
+});
+
+test('buildItems prefers the local commit subject over run titles', async () => {
+  const { buildItems } = await import('../lib/render.js');
+  const runs = [{ databaseId: 1, status: 'completed', conclusion: 'success', headSha: 'abc1234def', workflowName: 'ci', displayTitle: 'ci', event: 'workflow_dispatch', createdAt: '2026-10-03T12:00:00Z', updatedAt: '2026-10-03T12:01:00Z' }];
+  const args = { runs, jobsByRun: new Map(), expandedCommits: new Set(), expandedRuns: new Set(), expandedJobs: new Set(), head: null, now: Date.parse('2026-10-03T12:10:00Z') };
+  assert.equal(buildItems(args)[0].label, 'abc1234 · ci');
+  assert.equal(buildItems({ ...args, subjects: new Map([['abc1234def', 'chore(release): bump']]) })[0].label, 'abc1234 · chore(release): bump');
 });

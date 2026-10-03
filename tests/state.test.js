@@ -189,3 +189,41 @@ test('running since uses the latest attempt start (re-runs keep createdAt)', () 
   const r = run({ status: 'in_progress', conclusion: null, createdAt: '2026-10-03T11:00:00Z', startedAt: '2026-10-03T12:00:00Z', attempt: 2 });
   assert.equal(deriveStatus({ runs: [r], head: 'aaa' }).since, Date.parse('2026-10-03T12:00:00Z'));
 });
+
+test('groupByCommit orders commits by newest run and prefers the push title', async () => {
+  const { groupByCommit } = await import('../lib/state.js');
+  const groups = groupByCommit([
+    { databaseId: 1, headSha: 'a', event: 'push', displayTitle: 'feat: a', createdAt: '2026-10-03T10:00:00Z' },
+    { databaseId: 2, headSha: 'b', event: 'push', displayTitle: 'fix: b', createdAt: '2026-10-03T11:00:00Z' },
+    { databaseId: 3, headSha: 'a', event: 'workflow_dispatch', displayTitle: 'publish', createdAt: '2026-10-03T12:00:00Z' },
+  ]);
+  assert.deepEqual(groups.map((g) => [g.sha, g.title, g.runs.map((r) => r.databaseId)]), [
+    ['a', 'feat: a', [3, 1]],
+    ['b', 'fix: b', [2]],
+  ]);
+});
+
+test('commitStatus: running beats failure beats success; re-run supersedes', async () => {
+  const { commitStatus } = await import('../lib/state.js');
+  assert.equal(commitStatus([run({ workflowName: 'A' }), run({ workflowName: 'B', conclusion: 'failure' })]), 'failure');
+  assert.equal(commitStatus([run({ workflowName: 'A', conclusion: 'failure' }), run({ workflowName: 'B', status: 'queued', conclusion: null })]), 'running');
+  assert.equal(commitStatus([run({ conclusion: 'failure' }), run()]), 'success');
+});
+
+test('commitAction targets the fitting runs of a commit', async () => {
+  const { commitAction } = await import('../lib/state.js');
+  const commit = {
+    sha: 'abcdef1234',
+    runs: [
+      run({ workflowName: 'ci', conclusion: 'failure' }),
+      run({ workflowName: 'lint' }),
+      run({ workflowName: 'deploy', status: 'in_progress', conclusion: null }),
+    ],
+  };
+  const x = commitAction('rerun-failed', commit);
+  assert.equal(x.prompt, 'rerun failed jobs of 1 run of abcdef1 (ci)?');
+  assert.deepEqual(x.runs.map((r) => r.workflowName), ['ci']);
+  assert.deepEqual(commitAction('rerun-all', commit).runs.map((r) => r.workflowName).sort(), ['ci', 'lint']);
+  assert.deepEqual(commitAction('cancel', commit).runs.map((r) => r.workflowName), ['deploy']);
+  assert.deepEqual(commitAction('rerun-failed', { sha: 'abcdef1234', runs: [run()] }), { ok: false, reason: 'abcdef1: no failed runs' });
+});

@@ -4,7 +4,7 @@ import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
-import { deriveStatus, sortRuns, runAction, findDispatchedRun } from '../lib/state.js';
+import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun } from '../lib/state.js';
 import { sessionDir } from '../lib/session.js';
 import { runningDaemon } from '../lib/daemon-ctl.js';
 import { renderPane, buildItems, formatLog, wrapLines, clampTop, followSelection } from '../lib/render.js';
@@ -29,6 +29,12 @@ const S = {
   headSeenAt: Date.now(),
   runs: [],
   jobsByRun: new Map(),
+  // Commits start collapsed except the newest; when a newer one arrives it takes over, unless the
+  // user toggled the previous one themselves (userCommits).
+  expandedCommits: new Set(),
+  userCommits: new Set(),
+  newestSha: null,
+  subjects: new Map(),
   expandedRuns: new Set(),
   expandedJobs: new Set(),
   items: [],
@@ -48,6 +54,8 @@ const S = {
 };
 
 const DISPATCH_WATCH_MS = 120000;
+// One API call: enough runs to fill commits_per_branch commits even with several workflows per push.
+const PANE_RUN_LIMIT = 100;
 
 const size = () => ({ cols: out.columns || 80, rows: out.rows || 24 });
 const bodyH = () => size().rows - 2;
@@ -59,7 +67,16 @@ function selectedIndex() {
 }
 
 function rebuild() {
-  S.items = buildItems({ runs: S.runs, jobsByRun: S.jobsByRun, expandedRuns: S.expandedRuns, expandedJobs: S.expandedJobs, head: S.oid });
+  S.items = buildItems({
+    runs: S.runs,
+    jobsByRun: S.jobsByRun,
+    expandedCommits: S.expandedCommits,
+    expandedRuns: S.expandedRuns,
+    expandedJobs: S.expandedJobs,
+    head: S.oid,
+    commitLimit: config.commits_per_branch,
+    subjects: S.subjects,
+  });
   if (!S.items.some((it) => it.key === S.selectedKey)) S.selectedKey = S.items[0]?.key ?? null;
   S.top = followSelection(S.top, selectedIndex(), bodyH());
 }
@@ -130,6 +147,7 @@ function watchDispatch() {
   if (!S.watch) return null;
   const run = findDispatchedRun(S.runs, S.watch);
   if (run) {
+    S.expandedCommits.add(run.headSha);
     S.expandedRuns.add(run.databaseId);
     S.selectedKey = `run:${run.databaseId}`;
     S.watch = null;
@@ -172,6 +190,9 @@ async function refresh() {
     const bs = await git.branchState(S.repo.root);
     if (bs?.oid !== S.oid) S.headSeenAt = Date.now();
     if (bs?.head !== S.branch) {
+      S.expandedCommits.clear();
+      S.userCommits.clear();
+      S.newestSha = null;
       S.expandedRuns.clear();
       S.expandedJobs.clear();
       S.jobsByRun.clear();
@@ -184,20 +205,17 @@ async function refresh() {
       S.status = { updatedAt: clock(Date.now()) };
       return;
     }
-    const { runs, authWarning } = await gh.runList(S.repo.owner, S.repo.repo, S.branch, config.runs_per_branch);
+    const { runs, authWarning } = await gh.runList(S.repo.owner, S.repo.repo, S.branch, PANE_RUN_LIMIT);
     S.runs = sortRuns(runs);
     S.empty = 'no runs for this branch';
-    if (S.firstLoad && S.runs.length) {
-      S.expandedRuns.add(S.runs[0].databaseId);
-      S.selectedKey = `run:${S.runs[0].databaseId}`;
-      S.firstLoad = false;
-    }
+    followNewestCommit();
+    await loadSubjects();
     const watched = watchDispatch();
     const ids = new Set(S.runs.map((r) => r.databaseId));
     for (const id of S.jobsByRun.keys()) if (!ids.has(id)) S.jobsByRun.delete(id);
     await Promise.all(
       S.runs
-        .filter((r) => S.expandedRuns.has(r.databaseId))
+        .filter((r) => S.expandedCommits.has(r.headSha) && S.expandedRuns.has(r.databaseId))
         .filter((r) => !S.jobsByRun.get(r.databaseId)?.jobs || r.status !== 'completed' || hasActiveJobs(r.databaseId))
         .map((r) => loadJobs(r.databaseId)),
     );
@@ -211,6 +229,26 @@ async function refresh() {
     draw();
     schedule();
   }
+}
+
+async function loadSubjects() {
+  const shas = [...new Set(S.runs.map((r) => r.headSha))].slice(0, config.commits_per_branch).filter((sha) => !S.subjects.has(sha));
+  // null caches "not in the local clone"; the commit row then falls back to the runs' title.
+  await Promise.all(shas.map(async (sha) => S.subjects.set(sha, await git.subject(S.repo.root, sha).catch(() => null))));
+}
+
+function followNewestCommit() {
+  const newest = S.runs[0]?.headSha;
+  if (!newest) return;
+  if (S.firstLoad) {
+    S.expandedCommits = new Set([newest]);
+    S.selectedKey = `commit:${newest}`;
+    S.firstLoad = false;
+  } else if (newest !== S.newestSha) {
+    if (S.newestSha && !S.userCommits.has(S.newestSha)) S.expandedCommits.delete(S.newestSha);
+    S.expandedCommits.add(newest);
+  }
+  S.newestSha = newest;
 }
 
 function freshTarget({ run, job }) {
@@ -301,6 +339,33 @@ function askRunAction(action, run) {
       else await gh.rerun(S.repo.owner, S.repo.repo, run.databaseId, action === 'rerun-failed');
       S.jobsByRun.delete(run.databaseId);
       flash(action === 'cancel' ? 'cancel requested' : 'rerun requested');
+      nudgeDaemon();
+      refreshSoon();
+    },
+  };
+  draw();
+}
+
+function askCommitAction(action, commit) {
+  const check = commitAction(action, commit);
+  if (!check.ok) return flash(check.reason, '33');
+  S.confirm = {
+    prompt: check.prompt,
+    run: async () => {
+      flash(`${action === 'cancel' ? 'cancelling' : 'requesting reruns'}…`, '2');
+      const failed = [];
+      for (const r of check.runs) {
+        try {
+          if (action === 'cancel') await gh.cancel(S.repo.owner, S.repo.repo, r.databaseId);
+          else await gh.rerun(S.repo.owner, S.repo.repo, r.databaseId, action === 'rerun-failed');
+          S.jobsByRun.delete(r.databaseId);
+        } catch (e) {
+          failed.push(`${r.workflowName}: ${e.message}`);
+        }
+      }
+      const done = check.runs.length - failed.length;
+      if (failed.length) flash(`⚠ ${done}/${check.runs.length} requested · ${failed[0]}`, '33');
+      else flash(`${action === 'cancel' ? 'cancel' : 'rerun'} requested for ${done} run${done === 1 ? '' : 's'}`);
       nudgeDaemon();
       refreshSoon();
     },
@@ -410,7 +475,12 @@ async function handle({ action, y }) {
     }
     case 'enter':
       if (!it) break;
-      if (it.type === 'run') await toggleRun(it.run);
+      if (it.type === 'commit') {
+        const sha = it.commit.sha;
+        if (S.expandedCommits.has(sha)) S.expandedCommits.delete(sha);
+        else S.expandedCommits.add(sha);
+        S.userCommits.add(sha);
+      } else if (it.type === 'run') await toggleRun(it.run);
       else if (it.type === 'job' && it.expandable) {
         if (S.expandedJobs.has(it.job.databaseId)) S.expandedJobs.delete(it.job.databaseId);
         else S.expandedJobs.add(it.job.databaseId);
@@ -418,14 +488,17 @@ async function handle({ action, y }) {
       break;
     case 'log':
     case 'failed':
+      if (it?.type === 'commit') return flash('select a run or job to see its log', '33');
       if (it) return openLog({ run: it.run, job: it.job ?? null }, action === 'failed');
       break;
     case 'open':
-      if (it) openUrl(it.job?.url ?? it.run.url);
+      if (it?.type === 'commit') openUrl(`https://github.com/${S.repo.owner}/${S.repo.repo}/commit/${it.commit.sha}`);
+      else if (it) openUrl(it.job?.url ?? it.run.url);
       break;
     case 'rerun-failed':
     case 'rerun-all':
     case 'cancel':
+      if (it?.type === 'commit') return askCommitAction(action, it.commit);
       return askRunAction(action, it?.run);
     case 'workflows':
       return openPicker();
