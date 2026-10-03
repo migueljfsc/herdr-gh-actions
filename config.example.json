@@ -2,7 +2,8 @@
   "poll_seconds": 10,
   "idle_poll_seconds": 60,
   "notify": "fail",
-  "runs_per_branch": 5,
+  "runs_per_branch": 20,
+  "commits_per_branch": 10,
   "pushed_grace_seconds": 300,
   "accounts": {
     "my-work-org": "my-work-login",

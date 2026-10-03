@@ -30,7 +30,8 @@ test('invalid values fall back with warnings', () => {
   const { config, warnings } = normalize({ poll_seconds: 1, notify: 'loud', runs_per_branch: 'x', accounts: [] });
   assert.equal(config.poll_seconds, 10);
   assert.equal(config.notify, 'fail');
-  assert.equal(config.runs_per_branch, 5);
+  assert.equal(config.runs_per_branch, 20);
+  assert.equal(config.commits_per_branch, 10);
   assert.deepEqual(config.accounts, {});
   assert.equal(warnings.length, 4);
 });
