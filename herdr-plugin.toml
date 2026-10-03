@@ -1,6 +1,6 @@
 id = "migueljfsc.gh-actions"
 name = "GH Actions"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.9.0"
 description = "GitHub Actions status for each workspace's branch: sidebar token + runs/jobs/logs pane"
 platforms = ["linux", "macos"]
