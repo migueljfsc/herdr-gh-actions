@@ -96,6 +96,7 @@ herdr() {
 | `c` | cancel the selected run, or every active run of the selected commit |
 | `w` | pick a `workflow_dispatch` workflow and run it on the current branch, then follow its run |
 | `v` | switch layout: grouped by commit ↔ flat list of runs (remembered) |
+| `m` | load the next `commits_per_branch` older commits (same as `Enter` on the `▾ more` row) |
 | `?` | show all shortcuts in the footer (`?` or `Esc` hides them) |
 | `o` | open commit/run/job in browser |
 | `R` | refresh now |
@@ -111,6 +112,10 @@ The footer shows the keys that apply to the selected row; `?` expands it into ev
   workflow runs for that commit. Only the newest commit starts expanded; when a newer one arrives it
   takes over, unless you opened or closed the previous one yourself.
 - **Flat**: one row per run, newest first, for the same commits.
+
+When older commits exist, the list ends in a `▾ 10 more commits` row: `Enter` on it (or `m` anywhere)
+loads the next batch, as far back as the branch's history goes. Loaded batches last until the pane
+closes or the branch changes.
 
 Re-run, cancel and dispatch ask `y/n` first and name the runs they act on.
 
@@ -143,7 +148,7 @@ Optional `config.json` in the plugin config dir (`herdr plugin config-dir miguel
 | `idle_poll_seconds` | 60 | interval when everything is settled |
 | `notify` | `fail` | `fail`: failed/timed-out runs · `all`: also successes · `off` |
 | `runs_per_branch` | 20 | runs the sidebar poller reads per branch to work out the newest commit's status |
-| `commits_per_branch` | 10 | commits listed in the pane (it reads the branch's last 100 runs) |
+| `commits_per_branch` | 10 | commits the pane lists at first, and per `▾ more` batch (1–50) |
 | `pane_layout` | `commit` | pane layout until you press `v`: `commit` (grouped) or `flat` |
 | `pushed_grace_seconds` | 300 | how long `↑ pushed` waits for a run before falling back to the last run |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback. Token via `gh auth token --user <login>` |
