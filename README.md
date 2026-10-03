@@ -4,19 +4,20 @@
 each workspace, and lets you drill into runs, read logs, re-run and dispatch workflows without
 leaving the terminal.
 
-![Runs, jobs and steps for the current branch](docs/pane-runs.svg)
+![Commits, runs, jobs and steps for the current branch](docs/pane-runs.svg)
 
 ![Failed steps of a job](docs/pane-log.svg)
 
 - **Sidebar token** `$ci` per workspace and per agent pane: `↑ pushed` · `◌ CI 2m` · `✓ CI` · `✗ CI` · `⚠ CI`
-- **Pane** with the branch's latest runs → jobs → steps, full or failed-only logs
-- **Actions**: re-run failed or all jobs, cancel, run a `workflow_dispatch` workflow and follow its run
+- **Pane** with the branch's latest commits → runs → jobs → steps, full or failed-only logs
+- **Actions**: re-run failed or all jobs, cancel (per run or per commit), run a `workflow_dispatch`
+  workflow and follow its run
 - **Notification** when a watched run fails (or every finish, if you want)
 
 ## Why this one?
 
-- **Down to the log line.** Runs → jobs → steps → logs (or failed steps only) inside the pane, not
-  just a status dot and a link to the browser.
+- **Down to the log line.** Commits → runs → jobs → steps → logs (or failed steps only) inside the
+  pane, not just a status dot and a link to the browser.
 - **Branch-based, no PR needed.** Shows `↑ pushed` the moment you push, before GitHub has a run.
 - **Acts, not just watches.** Re-run, cancel, and dispatch workflows on the current branch.
 - **Agent-aware.** Agents working in worktrees on other branches get their own status token.
@@ -87,20 +88,23 @@ herdr() {
 | key | action |
 | --- | --- |
 | `j`/`k`, `↑`/`↓`, wheel | move |
-| `Enter`, `→` | expand/collapse run or job; on a step, open its job log |
+| `Enter`, `→` | expand/collapse commit, run or job; on a step, open its job log |
 | `l` | log of selected job (or whole run) |
 | `f` | failed steps only |
-| `x` | re-run failed jobs of the selected run |
-| `X` | re-run all jobs of the selected run |
-| `c` | cancel the selected run |
+| `x` | re-run failed jobs of the selected run, or of every failed run of the selected commit |
+| `X` | re-run all jobs of the selected run, or of every finished run of the selected commit |
+| `c` | cancel the selected run, or every active run of the selected commit |
 | `w` | pick a `workflow_dispatch` workflow and run it on the current branch, then follow its run |
-| `o` | open run/job in browser |
+| `o` | open commit/run/job in browser |
 | `R` | refresh now |
 | `g`/`G`, `PgUp`/`PgDn` | jump / page |
 | `Esc` | back |
 | `q` | quit |
 
-Re-run, cancel and dispatch ask `y/n` first and name the run they act on. Dispatch uses the
+The pane lists the branch's newest `commits_per_branch` commits, each grouping the workflow runs for
+that commit. Only the newest commit starts expanded; when a newer one arrives it takes over, unless
+you opened or closed the previous one yourself. Re-run, cancel and dispatch ask `y/n` first and name
+the runs they act on. Dispatch uses the
 workflow's default inputs. Logs exist only once a job finishes; for a running job the log view
 shows live step status and loads the log when the job completes.
 
@@ -115,7 +119,8 @@ Optional `config.json` in the plugin config dir (`herdr plugin config-dir miguel
   "poll_seconds": 10,
   "idle_poll_seconds": 60,
   "notify": "fail",
-  "runs_per_branch": 5,
+  "runs_per_branch": 20,
+  "commits_per_branch": 10,
   "pushed_grace_seconds": 300,
   "accounts": { "my-org": "work-login", "*": "personal-login" }
 }
@@ -126,7 +131,8 @@ Optional `config.json` in the plugin config dir (`herdr plugin config-dir miguel
 | `poll_seconds` | 10 | interval while any run is active or a push awaits its run |
 | `idle_poll_seconds` | 60 | interval when everything is settled |
 | `notify` | `fail` | `fail`: failed/timed-out runs · `all`: also successes · `off` |
-| `runs_per_branch` | 5 | runs listed per branch |
+| `runs_per_branch` | 20 | runs the sidebar poller reads per branch to work out the newest commit's status |
+| `commits_per_branch` | 10 | commits listed in the pane (it reads the branch's last 100 runs) |
 | `pushed_grace_seconds` | 300 | how long `↑ pushed` waits for a run before falling back to the last run |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback. Token via `gh auth token --user <login>` |
 

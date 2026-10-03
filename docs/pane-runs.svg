@@ -1,80 +1,76 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1099" height="484" viewBox="0 0 1099 484">
-<rect width="1099" height="484" rx="10" fill="#0d1117"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1099" height="424" viewBox="0 0 1099 424">
+<rect width="1099" height="424" rx="10" fill="#0d1117"/>
 <path d="M0 10a10 10 0 0 1 10-10h1079a10 10 0 0 1 10 10v22h-1099z" fill="#161b22"/>
 <circle cx="18" cy="16" r="6" fill="#ff5f56"/>
 <circle cx="38" cy="16" r="6" fill="#ffbd2e"/>
 <circle cx="58" cy="16" r="6" fill="#27c93f"/>
-<text x="549.5" y="21" fill="#8b949e" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" text-anchor="middle">herdr gh — runs → jobs → steps</text>
+<text x="549.5" y="21" fill="#8b949e" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" text-anchor="middle">herdr gh — commits → runs → jobs → steps</text>
 <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14">
 <text x="16.0" y="62" fill="#c9d1d9" font-weight="bold" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs">migueljfsc/herdr-gh-actions</text>
 <text x="242.8" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs"> · </text>
 <text x="268.0" y="62" fill="#bc8cff" xml:space="preserve" textLength="33.6" lengthAdjust="spacingAndGlyphs">main</text>
-<text x="301.6" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="84.0" lengthAdjust="spacingAndGlyphs"> · 36ce4c4</text>
-<text x="16.0" y="82" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="301.6" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="84.0" lengthAdjust="spacingAndGlyphs"> · 2115471</text>
+<text x="16.0" y="82" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▾ </text>
 <text x="32.8" y="82" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="41.2" y="82" fill="#c9d1d9" xml:space="preserve" textLength="168.0" lengthAdjust="spacingAndGlyphs"> release · release  </text>
-<text x="209.2" y="82" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="361.2" lengthAdjust="spacingAndGlyphs">workflow_dispatch · 04b55e4 · 33s · 42m ago</text>
-<text x="16.0" y="102" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
-<text x="32.8" y="102" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="41.2" y="102" fill="#c9d1d9" xml:space="preserve" textLength="655.2" lengthAdjust="spacingAndGlyphs"> ci · build: pass test files explicitly; node 22/24 reject a directory argu…  </text>
-<text x="696.4" y="102" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="344.4" lengthAdjust="spacingAndGlyphs">push · 04b55e4 · attempt 2 · 17s · 3m ago</text>
-<text x="16.0" y="122" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
-<text x="32.8" y="122" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="41.2" y="122" fill="#c9d1d9" xml:space="preserve" textLength="697.2" lengthAdjust="spacingAndGlyphs"> release · build: pass test files explicitly; node 22/24 reject a directory argu…  </text>
-<text x="738.4" y="122" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="344.4" lengthAdjust="spacingAndGlyphs">push · 04b55e4 · attempt 2 · 26s · 5m ago</text>
-<text x="16.0" y="142" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▾ </text>
-<text x="32.8" y="142" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
-<text x="41.2" y="142" fill="#c9d1d9" xml:space="preserve" textLength="478.8" lengthAdjust="spacingAndGlyphs"> ci · test: use a neutral org name in the accounts test  </text>
-<text x="520.0" y="142" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="268.8" lengthAdjust="spacingAndGlyphs">push · f673562 · 44s · 1h02m ago</text>
-<text x="32.8" y="162" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
-<text x="49.6" y="162" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="58.0" y="162" fill="#c9d1d9" xml:space="preserve" textLength="58.8" lengthAdjust="spacingAndGlyphs"> lint  </text>
-<text x="116.8" y="162" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">6s</text>
-<rect x="16.0" y="168" width="16.8" height="20" fill="#c9d1d9"/>
-<rect x="32.8" y="168" width="16.8" height="20" fill="#c9d1d9"/>
-<text x="32.8" y="182" fill="#0d1117" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▾ </text>
-<rect x="49.6" y="168" width="8.4" height="20" fill="#ff7b72"/>
-<text x="49.6" y="182" fill="#0d1117" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
-<rect x="58.0" y="168" width="8.4" height="20" fill="#c9d1d9"/>
-<rect x="66.4" y="168" width="201.6" height="20" fill="#c9d1d9"/>
-<text x="66.4" y="182" fill="#0d1117" font-weight="bold" xml:space="preserve" textLength="201.6" lengthAdjust="spacingAndGlyphs">test (ubuntu-latest, 22)</text>
-<rect x="268.0" y="168" width="16.8" height="20" fill="#c9d1d9"/>
-<rect x="284.8" y="168" width="16.8" height="20" fill="#c9d1d9"/>
-<text x="284.8" y="182" fill="#0d1117" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">5s</text>
-<rect x="301.6" y="168" width="781.2" height="20" fill="#c9d1d9"/>
-<text x="66.4" y="202" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="74.8" y="202" fill="#c9d1d9" xml:space="preserve" textLength="134.4" lengthAdjust="spacingAndGlyphs"> 1. Set up job  </text>
-<text x="209.2" y="202" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">1s</text>
-<text x="66.4" y="222" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="74.8" y="222" fill="#c9d1d9" xml:space="preserve" textLength="1008.0" lengthAdjust="spacingAndGlyphs"> 2. Run actions/checkout@v7                                                                                             </text>
-<text x="66.4" y="242" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="74.8" y="242" fill="#c9d1d9" xml:space="preserve" textLength="294.0" lengthAdjust="spacingAndGlyphs"> 3. Run actions/setup-node@v7.0.0  </text>
-<text x="368.8" y="242" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">1s</text>
-<text x="66.4" y="262" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="74.8" y="262" fill="#c9d1d9" xml:space="preserve" textLength="1008.0" lengthAdjust="spacingAndGlyphs"> 4. syntax check                                                                                                        </text>
+<text x="41.2" y="82" fill="#c9d1d9" xml:space="preserve" textLength="680.4" lengthAdjust="spacingAndGlyphs"> fe9526e · docs: dispatch screenshot with both workflows and the confirm prompt  </text>
+<text x="721.6" y="82" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="109.2" lengthAdjust="spacingAndGlyphs">push · 6m ago</text>
+<text x="32.8" y="102" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="49.6" y="102" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="58.0" y="102" fill="#c9d1d9" xml:space="preserve" textLength="42.0" lengthAdjust="spacingAndGlyphs"> ci  </text>
+<text x="100.0" y="102" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs">13s</text>
+<text x="32.8" y="122" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="49.6" y="122" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="58.0" y="122" fill="#c9d1d9" xml:space="preserve" textLength="84.0" lengthAdjust="spacingAndGlyphs"> release  </text>
+<text x="142.0" y="122" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs">29s</text>
+<text x="16.0" y="142" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="32.8" y="142" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="41.2" y="142" fill="#c9d1d9" xml:space="preserve" textLength="478.8" lengthAdjust="spacingAndGlyphs"> 7abea64 · chore(release): bump 0.2.0 → 0.3.0 [skip ci]  </text>
+<text x="520.0" y="142" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="218.4" lengthAdjust="spacingAndGlyphs">workflow_dispatch · 7m ago</text>
+<text x="16.0" y="162" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="32.8" y="162" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="41.2" y="162" fill="#c9d1d9" xml:space="preserve" textLength="512.4" lengthAdjust="spacingAndGlyphs"> d8a11ab · docs: screenshots and what sets the plugin apart  </text>
+<text x="553.6" y="162" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="109.2" lengthAdjust="spacingAndGlyphs">push · 9m ago</text>
+<text x="16.0" y="182" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="32.8" y="182" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="41.2" y="182" fill="#c9d1d9" xml:space="preserve" textLength="722.4" lengthAdjust="spacingAndGlyphs"> 04b55e4 · build: pass test files explicitly; node 22/24 reject a directory argument  </text>
+<text x="763.6" y="182" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs">workflow_dispatch · 15m ago</text>
+<text x="16.0" y="202" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▾ </text>
+<text x="32.8" y="202" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="41.2" y="202" fill="#c9d1d9" xml:space="preserve" textLength="520.8" lengthAdjust="spacingAndGlyphs"> f673562 · test: use a neutral org name in the accounts test  </text>
+<text x="562.0" y="202" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="134.4" lengthAdjust="spacingAndGlyphs">push · 1h14m ago</text>
+<text x="32.8" y="222" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▾ </text>
+<text x="49.6" y="222" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="58.0" y="222" fill="#c9d1d9" xml:space="preserve" textLength="42.0" lengthAdjust="spacingAndGlyphs"> ci  </text>
+<text x="100.0" y="222" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs">44s</text>
+<rect x="16.0" y="228" width="50.9" height="20" fill="#c9d1d9"/>
+<rect x="66.4" y="228" width="8.9" height="20" fill="#3fb950"/>
+<rect x="74.8" y="228" width="1008.5" height="20" fill="#c9d1d9"/>
+<text x="49.6" y="242" fill="#0d1117" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="66.4" y="242" fill="#0d1117" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
+<text x="83.2" y="242" fill="#0d1117" font-weight="bold" xml:space="preserve" textLength="33.6" lengthAdjust="spacingAndGlyphs">lint</text>
+<text x="133.6" y="242" fill="#0d1117" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">6s</text>
+<text x="49.6" y="262" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="66.4" y="262" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="74.8" y="262" fill="#c9d1d9" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs"> test (ubuntu-latest, 22)  </text>
+<text x="301.6" y="262" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">5s</text>
+<text x="49.6" y="282" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
 <text x="66.4" y="282" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
-<text x="74.8" y="282" fill="#c9d1d9" xml:space="preserve" textLength="1008.0" lengthAdjust="spacingAndGlyphs"> 5. Run npm test                                                                                                        </text>
-<text x="66.4" y="302" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">–</text>
-<text x="83.2" y="302" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="310.8" lengthAdjust="spacingAndGlyphs">9. Post Run actions/setup-node@v7.0.0</text>
-<text x="66.4" y="322" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="74.8" y="322" fill="#c9d1d9" xml:space="preserve" textLength="294.0" lengthAdjust="spacingAndGlyphs"> 10. Post Run actions/checkout@v7  </text>
-<text x="368.8" y="322" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">1s</text>
-<text x="66.4" y="342" fill="#3fb950" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✓</text>
-<text x="74.8" y="342" fill="#c9d1d9" xml:space="preserve" textLength="1008.0" lengthAdjust="spacingAndGlyphs"> 11. Complete job                                                                                                       </text>
-<text x="32.8" y="362" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
-<text x="49.6" y="362" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
-<text x="58.0" y="362" fill="#c9d1d9" xml:space="preserve" textLength="218.4" lengthAdjust="spacingAndGlyphs"> test (macos-latest, 24)  </text>
-<text x="276.4" y="362" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">7s</text>
-<text x="32.8" y="382" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
-<text x="49.6" y="382" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
-<text x="58.0" y="382" fill="#c9d1d9" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs"> test (ubuntu-latest, 24)  </text>
-<text x="284.8" y="382" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">5s</text>
-<text x="49.6" y="402" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">–</text>
-<text x="58.0" y="402" fill="#c9d1d9" xml:space="preserve" textLength="1024.8" lengthAdjust="spacingAndGlyphs"> commits                                                                                                                  </text>
-<text x="16.0" y="422" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
-<text x="32.8" y="422" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
-<text x="41.2" y="422" fill="#c9d1d9" xml:space="preserve" textLength="520.8" lengthAdjust="spacingAndGlyphs"> release · test: use a neutral org name in the accounts test  </text>
-<text x="562.0" y="422" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="268.8" lengthAdjust="spacingAndGlyphs">push · f673562 · 36s · 1h02m ago</text>
-<text x="16.0" y="462" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="142.8" lengthAdjust="spacingAndGlyphs">updated 17:11:21 </text>
-<text x="889.6" y="462" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="193.2" lengthAdjust="spacingAndGlyphs">j/k ↵ l f o x X c w R q</text>
+<text x="74.8" y="282" fill="#c9d1d9" xml:space="preserve" textLength="218.4" lengthAdjust="spacingAndGlyphs"> test (macos-latest, 24)  </text>
+<text x="293.2" y="282" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">7s</text>
+<text x="49.6" y="302" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="66.4" y="302" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="74.8" y="302" fill="#c9d1d9" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs"> test (ubuntu-latest, 24)  </text>
+<text x="301.6" y="302" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">5s</text>
+<text x="66.4" y="322" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">–</text>
+<text x="74.8" y="322" fill="#c9d1d9" xml:space="preserve" textLength="1008.0" lengthAdjust="spacingAndGlyphs"> commits                                                                                                                </text>
+<text x="32.8" y="342" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="49.6" y="342" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="58.0" y="342" fill="#c9d1d9" xml:space="preserve" textLength="84.0" lengthAdjust="spacingAndGlyphs"> release  </text>
+<text x="142.0" y="342" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs">36s</text>
+<text x="16.0" y="362" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="16.8" lengthAdjust="spacingAndGlyphs">▸ </text>
+<text x="32.8" y="362" fill="#ff7b72" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">✗</text>
+<text x="41.2" y="362" fill="#c9d1d9" xml:space="preserve" textLength="596.4" lengthAdjust="spacingAndGlyphs"> 78f6957 · feat: GitHub Actions status per workspace branch for herdr  </text>
+<text x="637.6" y="362" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="159.6" lengthAdjust="spacingAndGlyphs">dynamic · 1h14m ago</text>
+<text x="16.0" y="402" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="142.8" lengthAdjust="spacingAndGlyphs">updated 17:23:03 </text>
+<text x="889.6" y="402" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="193.2" lengthAdjust="spacingAndGlyphs">j/k ↵ l f o x X c w R q</text>
 </g></svg>
