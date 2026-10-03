@@ -95,16 +95,26 @@ herdr() {
 | `X` | re-run all jobs of the selected run, or of every finished run of the selected commit |
 | `c` | cancel the selected run, or every active run of the selected commit |
 | `w` | pick a `workflow_dispatch` workflow and run it on the current branch, then follow its run |
+| `v` | switch layout: grouped by commit ↔ flat list of runs (remembered) |
+| `?` | show all shortcuts in the footer (`?` or `Esc` hides them) |
 | `o` | open commit/run/job in browser |
 | `R` | refresh now |
 | `g`/`G`, `PgUp`/`PgDn` | jump / page |
 | `Esc` | back |
 | `q` | quit |
 
-The pane lists the branch's newest `commits_per_branch` commits, each grouping the workflow runs for
-that commit. Only the newest commit starts expanded; when a newer one arrives it takes over, unless
-you opened or closed the previous one yourself. Re-run, cancel and dispatch ask `y/n` first and name
-the runs they act on. Dispatch uses the
+The footer shows the keys that apply to the selected row; `?` expands it into every shortcut.
+
+**Layouts** (`v` switches, and the pane remembers your pick):
+
+- **By commit** (default): the branch's newest `commits_per_branch` commits, each grouping the
+  workflow runs for that commit. Only the newest commit starts expanded; when a newer one arrives it
+  takes over, unless you opened or closed the previous one yourself.
+- **Flat**: one row per run, newest first, for the same commits.
+
+Re-run, cancel and dispatch ask `y/n` first and name the runs they act on.
+
+![Flat list with the shortcuts panel open](docs/pane-flat.svg) Dispatch uses the
 workflow's default inputs. Logs exist only once a job finishes; for a running job the log view
 shows live step status and loads the log when the job completes.
 
@@ -121,6 +131,7 @@ Optional `config.json` in the plugin config dir (`herdr plugin config-dir miguel
   "notify": "fail",
   "runs_per_branch": 20,
   "commits_per_branch": 10,
+  "pane_layout": "commit",
   "pushed_grace_seconds": 300,
   "accounts": { "my-org": "work-login", "*": "personal-login" }
 }
@@ -133,6 +144,7 @@ Optional `config.json` in the plugin config dir (`herdr plugin config-dir miguel
 | `notify` | `fail` | `fail`: failed/timed-out runs · `all`: also successes · `off` |
 | `runs_per_branch` | 20 | runs the sidebar poller reads per branch to work out the newest commit's status |
 | `commits_per_branch` | 10 | commits listed in the pane (it reads the branch's last 100 runs) |
+| `pane_layout` | `commit` | pane layout until you press `v`: `commit` (grouped) or `flat` |
 | `pushed_grace_seconds` | 300 | how long `↑ pushed` waits for a run before falling back to the last run |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback. Token via `gh auth token --user <login>` |
 

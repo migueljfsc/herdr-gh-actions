@@ -15,7 +15,7 @@ test('parseAnsi: 16 and 256 colours, bold, dim, inverse, resets, CRLF lines', ()
   assert.equal(z.bg, null);
 });
 
-test('toSvg: collapses the gap above the status line to one blank row', () => {
+test('toSvg: collapses blank bands to one blank row', () => {
   const svg = toSvg(parseAnsi('top\n\n\n\n\nstatus\n'));
   const ys = [...svg.matchAll(/<text x="[\d.]+" y="(\d+)"/g)].map((m) => Number(m[1]));
   assert.equal(ys.length, 2);

@@ -92,10 +92,8 @@ export function toSvg(lines, { title = '', fontSize = 14 } = {}) {
     return 0;
   };
   while (lines.length && lastCol(lines[lines.length - 1]) === 0) lines = lines.slice(0, -1);
-  // A pane taller than its content leaves a gap above the status line; keep one blank row of it.
-  let gap = lines.length - 1;
-  while (gap > 0 && lastCol(lines[gap - 1]) === 0) gap--;
-  if (lines.length - 1 - gap > 1) lines = [...lines.slice(0, gap + 1), lines[lines.length - 1]];
+  // A pane taller than its content leaves blank bands (e.g. above the footer); keep one row of each.
+  lines = lines.filter((l, i) => !(lastCol(l) === 0 && i > 0 && lastCol(lines[i - 1]) === 0));
   const cols = Math.max(20, ...lines.map(lastCol));
   const width = Math.ceil(cols * cw + pad * 2);
   const height = bar + lines.length * lh + pad * 2;
