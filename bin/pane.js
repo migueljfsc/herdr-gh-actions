@@ -4,7 +4,9 @@ import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
-import { deriveStatus, sortRuns } from '../lib/state.js';
+import { deriveStatus, sortRuns, runAction, findDispatchedRun } from '../lib/state.js';
+import { sessionDir } from '../lib/session.js';
+import { runningDaemon } from '../lib/daemon-ctl.js';
 import { renderPane, buildItems, formatLog, wrapLines, clampTop, followSelection } from '../lib/render.js';
 import { parseKeys } from '../lib/keys.js';
 
@@ -22,6 +24,7 @@ const S = {
   ahead: null,
   behind: null,
   headTime: null,
+  skipCi: false,
   upstream: null,
   headSeenAt: Date.now(),
   runs: [],
@@ -38,7 +41,13 @@ const S = {
   firstLoad: true,
   timer: null,
   busy: false,
+  confirm: null,
+  picker: null,
+  workflows: null,
+  watch: null,
 };
+
+const DISPATCH_WATCH_MS = 120000;
 
 const size = () => ({ cols: out.columns || 80, rows: out.rows || 24 });
 const bodyH = () => size().rows - 2;
@@ -57,7 +66,7 @@ function rebuild() {
 
 function header() {
   if (!S.repo) return null;
-  const st = deriveStatus({ runs: S.runs, head: S.oid, headTime: S.headTime, ahead: S.ahead, behind: S.behind, upstream: S.upstream, headSeenAt: S.headSeenAt, pushedGraceMs: config.pushed_grace_seconds * 1000 });
+  const st = deriveStatus({ runs: S.runs, head: S.oid, headTime: S.headTime, skipCi: S.skipCi, ahead: S.ahead, behind: S.behind, upstream: S.upstream, headSeenAt: S.headSeenAt, pushedGraceMs: config.pushed_grace_seconds * 1000 });
   return { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, headShort: S.oid?.slice(0, 7), pushed: st.kind === 'pushed', ahead: S.ahead };
 }
 
@@ -65,7 +74,18 @@ function draw() {
   const { cols, rows } = size();
   rebuild();
   const lines = renderPane(
-    { header: header(), view: S.view, items: S.items, selected: selectedIndex(), top: S.top, log: S.log, status: S.status, empty: S.empty },
+    {
+      header: header(),
+      view: S.view,
+      items: S.items,
+      selected: selectedIndex(),
+      top: S.top,
+      log: S.log,
+      picker: S.picker,
+      status: S.status,
+      empty: S.empty,
+      confirm: S.confirm?.prompt,
+    },
     cols,
     rows,
   );
@@ -81,8 +101,42 @@ function anyActive() {
 function schedule() {
   clearTimeout(S.timer);
   const pushed = header()?.pushed;
-  const secs = anyActive() || pushed ? config.poll_seconds : config.idle_poll_seconds;
+  const secs = anyActive() || pushed || S.watch ? config.poll_seconds : config.idle_poll_seconds;
   S.timer = setTimeout(refresh, secs * 1000);
+}
+
+function refreshSoon(ms = 3000) {
+  clearTimeout(S.timer);
+  S.timer = setTimeout(refresh, ms);
+}
+
+function flash(message, sgr = '32') {
+  S.status = { ...S.status, loading: false, message, messageSgr: sgr };
+  draw();
+}
+
+// Let the sidebar daemon pick up a rerun/cancel/dispatch now instead of on its idle interval.
+function nudgeDaemon() {
+  if (!process.env.HERDR_SOCKET_PATH) return;
+  try {
+    const pid = runningDaemon(sessionDir());
+    if (pid) process.kill(pid, 'SIGUSR1');
+  } catch {}
+}
+
+function watchDispatch() {
+  if (!S.watch) return;
+  const run = findDispatchedRun(S.runs, S.watch);
+  if (run) {
+    S.expandedRuns.add(run.databaseId);
+    S.selectedKey = `run:${run.databaseId}`;
+    S.status = { ...S.status, message: `watching ${run.workflowName} #${run.databaseId}`, messageSgr: '32' };
+    S.watch = null;
+    nudgeDaemon();
+  } else if (Date.now() > S.watch.until) {
+    S.status = { ...S.status, message: `no run for ${S.watch.workflowName} yet; R to refresh`, messageSgr: '33' };
+    S.watch = null;
+  }
 }
 
 async function loadJobs(runId) {
@@ -118,7 +172,7 @@ async function refresh() {
       S.jobsByRun.clear();
       S.firstLoad = true;
     }
-    Object.assign(S, { branch: bs?.head ?? null, oid: bs?.oid ?? null, headTime: bs?.time ?? null, ahead: bs?.ahead ?? null, behind: bs?.behind ?? null, upstream: bs?.upstream ?? null });
+    Object.assign(S, { branch: bs?.head ?? null, oid: bs?.oid ?? null, headTime: bs?.time ?? null, skipCi: bs?.skipCi ?? false, ahead: bs?.ahead ?? null, behind: bs?.behind ?? null, upstream: bs?.upstream ?? null });
     if (!S.branch) {
       S.runs = [];
       S.empty = 'detached HEAD: no branch to watch';
@@ -142,6 +196,7 @@ async function refresh() {
         .map((r) => loadJobs(r.databaseId)),
     );
     S.status = { updatedAt: clock(Date.now()), message: authWarning ? `⚠ gh auth fallback · updated ${clock(Date.now())}` : null, messageSgr: '33' };
+    watchDispatch();
     if (S.log?.pending) await openLog(freshTarget(S.log.target), S.log.failedOnly, true);
   } catch (e) {
     S.status = { stale: true, message: e.message, messageSgr: '33' };
@@ -229,8 +284,86 @@ async function toggleRun(run) {
   }
 }
 
+function askRunAction(action, run) {
+  const check = runAction(action, run);
+  if (!check.ok) return flash(check.reason, '33');
+  S.confirm = {
+    prompt: check.prompt,
+    run: async () => {
+      flash(`${action === 'cancel' ? 'cancelling' : 'requesting rerun'}…`, '2');
+      if (action === 'cancel') await gh.cancel(S.repo.owner, S.repo.repo, run.databaseId);
+      else await gh.rerun(S.repo.owner, S.repo.repo, run.databaseId, action === 'rerun-failed');
+      S.jobsByRun.delete(run.databaseId);
+      flash(action === 'cancel' ? 'cancel requested' : 'rerun requested');
+      nudgeDaemon();
+      refreshSoon();
+    },
+  };
+  draw();
+}
+
+async function openPicker() {
+  if (!S.repo || !S.branch) return flash('no branch to run a workflow on', '33');
+  const title = `Run workflow on ${S.branch}`;
+  S.view = 'picker';
+  S.picker = { title, items: [], selected: 0, top: 0, empty: 'loading workflows…' };
+  draw();
+  try {
+    if (S.workflows?.branch !== S.branch) S.workflows = { branch: S.branch, list: await gh.workflows(S.repo.owner, S.repo.repo, S.branch) };
+    const items = S.workflows.list
+      .filter((w) => w.dispatchable)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((w) => ({ key: `wf:${w.id}`, workflow: w, depth: 0, glyph: ['▶', '36'], label: w.name, meta: w.path.split('/').pop() }));
+    S.picker = { title, items, selected: 0, top: 0, empty: `no workflow on ${S.branch} has a workflow_dispatch trigger` };
+  } catch (e) {
+    S.picker = { title, items: [], selected: 0, top: 0, empty: `⚠ ${e.message}` };
+  }
+  if (S.view === 'picker') draw();
+}
+
+function askDispatch(w) {
+  S.confirm = {
+    prompt: `run "${w.name}" on ${S.branch}?`,
+    run: async () => {
+      flash(`dispatching ${w.name}…`, '2');
+      await gh.dispatch(S.repo.owner, S.repo.repo, w.id, S.branch);
+      S.view = 'list';
+      S.watch = { workflowName: w.name, since: Date.now(), until: Date.now() + DISPATCH_WATCH_MS };
+      flash(`dispatched ${w.name}; waiting for its run…`);
+      nudgeDaemon();
+      refreshSoon();
+    },
+  };
+  draw();
+}
+
 async function handle({ action, y }) {
+  rebuild();
+  if (S.confirm) {
+    const c = S.confirm;
+    S.confirm = null;
+    if (action !== 'yes') return flash('cancelled', '2');
+    try {
+      await c.run();
+    } catch (e) {
+      flash(`⚠ ${e.message}`, '33');
+    }
+    return;
+  }
   if (action === 'quit') return quit();
+  if (S.view === 'picker') {
+    const p = S.picker;
+    const viewH = bodyH() - 1;
+    if (action === 'back') S.view = 'list';
+    else if (action === 'up' || action === 'down') {
+      p.selected = Math.max(0, Math.min(p.items.length - 1, p.selected + (action === 'up' ? -1 : 1)));
+      p.top = followSelection(p.top, p.selected, viewH);
+    } else if (action === 'click') {
+      const row = p.top + (y - 3);
+      if (row >= 0 && row < p.items.length) p.selected = row;
+    } else if (action === 'enter' && p.items[p.selected]) return askDispatch(p.items[p.selected].workflow);
+    return draw();
+  }
   if (S.view === 'log') {
     const page = bodyH() - 2;
     if (action === 'back') S.view = 'list';
@@ -284,6 +417,12 @@ async function handle({ action, y }) {
     case 'open':
       if (it) openUrl(it.job?.url ?? it.run.url);
       break;
+    case 'rerun-failed':
+    case 'rerun-all':
+    case 'cancel':
+      return askRunAction(action, it?.run);
+    case 'workflows':
+      return openPicker();
     case 'refresh':
       clearTimeout(S.timer);
       return refresh();

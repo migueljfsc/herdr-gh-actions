@@ -9,6 +9,10 @@ test('letters and control keys', () => {
   assert.deepEqual(acts('\r\x03\x1b'), ['enter', 'quit', 'back']);
 });
 
+test('action keys', () => {
+  assert.deepEqual(acts('xXcwyn'), ['rerun-failed', 'rerun-all', 'cancel', 'workflows', 'yes', 'no']);
+});
+
 test('arrows and paging in one chunk', () => {
   assert.deepEqual(acts('\x1b[A\x1b[B\x1b[5~\x1b[6~\x1bOB'), ['up', 'down', 'pageup', 'pagedown', 'down']);
 });

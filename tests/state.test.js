@@ -139,3 +139,53 @@ test('stale checkout (HEAD older than newest run) is not pushed', () => {
   assert.equal(deriveStatus({ ...base, headTime: Date.parse(newer.createdAt) + 1000 }).kind, 'pushed');
   assert.equal(deriveStatus({ ...base, headTime: Date.parse(newer.createdAt) + 1000, behind: 2 }).kind, 'success');
 });
+
+test('runAction gating', async () => {
+  const { runAction } = await import('../lib/state.js');
+  const failed = run({ conclusion: 'failure' });
+  const ok = run();
+  const busy = run({ status: 'in_progress', conclusion: null });
+  assert.deepEqual(runAction('rerun-failed', { ...failed, displayTitle: 'fix x' }), { ok: true, prompt: `rerun failed jobs of "CI" #${failed.databaseId} (fix x)?` });
+  assert.equal(runAction('rerun-failed', ok).ok, false);
+  assert.equal(runAction('rerun-failed', busy).ok, false);
+  assert.equal(runAction('rerun-all', ok).ok, true);
+  assert.equal(runAction('rerun-all', busy).ok, false);
+  assert.equal(runAction('cancel', busy).ok, true);
+  assert.equal(runAction('cancel', ok).ok, false);
+  assert.equal(runAction('cancel', null).ok, false);
+});
+
+test('findDispatchedRun picks newest manual run of the workflow since dispatch', async () => {
+  const { findDispatchedRun } = await import('../lib/state.js');
+  const since = Date.parse('2026-10-03T12:00:00Z');
+  const runs = [
+    { databaseId: 1, event: 'workflow_dispatch', workflowName: 'publish', createdAt: '2026-10-03T11:00:00Z' },
+    { databaseId: 2, event: 'push', workflowName: 'publish', createdAt: '2026-10-03T12:00:05Z' },
+    { databaseId: 3, event: 'workflow_dispatch', workflowName: 'other', createdAt: '2026-10-03T12:00:05Z' },
+    { databaseId: 4, event: 'workflow_dispatch', workflowName: 'publish', createdAt: '2026-10-03T11:59:55Z' },
+  ];
+  assert.equal(findDispatchedRun(runs, { workflowName: 'publish', since })?.databaseId, 4);
+  assert.equal(findDispatchedRun(runs.slice(0, 3), { workflowName: 'publish', since }), null);
+});
+
+test('[skip ci] HEAD is never pushed', () => {
+  const old = run({ headSha: 'old' });
+  const s = deriveStatus({ runs: [old], head: 'new', headTime: Date.parse(old.createdAt) + 1000, skipCi: true, ahead: 0, upstream: 'origin/main', headSeenAt: T0, now: T0 + 1000 });
+  assert.equal(s.kind, 'success');
+});
+
+test('sortRuns breaks createdAt ties by id, newest first', async () => {
+  const { sortRuns } = await import('../lib/state.js');
+  const at = '2026-10-03T15:11:14Z';
+  const order = sortRuns([
+    { databaseId: 100, createdAt: at },
+    { databaseId: 92, createdAt: at },
+    { databaseId: 50, createdAt: '2026-10-03T16:00:00Z' },
+  ]).map((r) => r.databaseId);
+  assert.deepEqual(order, [50, 100, 92]);
+});
+
+test('running since uses the latest attempt start (re-runs keep createdAt)', () => {
+  const r = run({ status: 'in_progress', conclusion: null, createdAt: '2026-10-03T11:00:00Z', startedAt: '2026-10-03T12:00:00Z', attempt: 2 });
+  assert.equal(deriveStatus({ runs: [r], head: 'aaa' }).since, Date.parse('2026-10-03T12:00:00Z'));
+});

@@ -45,3 +45,21 @@ test('githubRepo rejects non-github hosts', async () => {
   const git = createGit({ exec: async (cmd) => (cmd === 'git' ? { code: 0, stdout: 'https://gitlab.com/o/r.git', stderr: '' } : { code: 1, stdout: '', stderr: '' }) });
   assert.equal(await git.githubRepo('/a'), null);
 });
+
+test('skipsCi markers', async () => {
+  const { skipsCi } = await import('../lib/git.js');
+  assert.equal(skipsCi('chore(release): bump 0.1.0 → 0.2.0 [skip ci]'), true);
+  assert.equal(skipsCi('x\n\n[CI SKIP]'), true);
+  assert.equal(skipsCi('[actions skip] y'), true);
+  assert.equal(skipsCi('skip ci without brackets'), false);
+});
+
+test('branchState reads commit time and skip marker', async () => {
+  const exec = async (cmd, args) =>
+    args.includes('status')
+      ? { code: 0, stdout: '# branch.oid abc\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +0 -0\n', stderr: '' }
+      : { code: 0, stdout: '1791000000\nchore: bump [skip ci]\n\n', stderr: '' };
+  const st = await createGit({ exec }).branchState('/r');
+  assert.equal(st.time, 1791000000000);
+  assert.equal(st.skipCi, true);
+});

@@ -43,6 +43,7 @@ test('formatLog strips gh prefixes and styles markers', () => {
     'deploy\tUNKNOWN STEP\t2026-10-03T11:39:28.6Z \x1b[32mok\x1b[0m',
     'deploy\tUNKNOWN STEP\t2026-10-03T11:39:28.6Z ##[endgroup]',
     'deploy\tUNKNOWN STEP\t2026-10-03T11:39:28.6Z ##[error]boom',
+    'deploy\tUNKNOWN STEP\t2026-10-03T11:39:28.6Z ^[[36;1mnpm test^[[0m',
     'deploy\tUNKNOWN STEP\t2026-10-03T11:39:28.6Z 10%\r50%\r100%',
     '',
   ].join('\n');
@@ -50,6 +51,7 @@ test('formatLog strips gh prefixes and styles markers', () => {
     { text: '▸ Run actions/checkout@v4', sgr: '1' },
     { text: 'ok', sgr: null },
     { text: 'boom', sgr: '31' },
+    { text: 'npm test', sgr: null },
     { text: '100%', sgr: null },
   ]);
 });
@@ -120,4 +122,24 @@ test('buildItems flattens expanded runs/jobs/steps and marks HEAD', async () => 
   assert.equal(items[1].meta, '1m00s');
   assert.equal(items[3].meta, 'push · zzz · 2m');
   assert.equal(items[4].label, 'loading jobs…');
+});
+
+test('picker view and confirm prompt render at exact size', () => {
+  const picker = { title: 'Run workflow on main', items: [{ depth: 0, label: 'publish', meta: '.github/workflows/publish.yml', glyph: ['▶', '36'] }], selected: 0, top: 0 };
+  for (const cols of [40, 80]) {
+    const lines = renderPane(model({ view: 'picker', picker, confirm: 'rerun failed jobs of "CI"?' }), cols, 6);
+    assert.equal(lines.length, 6);
+    for (const l of lines) assert.equal(w(l), cols);
+    assert.match(strip(lines[1]), /^Run workflow on main/);
+    assert.match(strip(lines[2]), /▶ publish/);
+    assert.match(strip(lines[5]), /rerun failed jobs of "CI"\? \[y\/n\]/);
+  }
+});
+
+test('re-run row shows attempt and times the latest attempt', async () => {
+  const { buildItems } = await import('../lib/render.js');
+  const now = Date.parse('2026-10-03T12:10:00Z');
+  const runs = [{ databaseId: 1, status: 'completed', conclusion: 'success', headSha: 'abc', workflowName: 'ci', displayTitle: 't', event: 'push', attempt: 2, createdAt: '2026-10-03T11:00:00Z', startedAt: '2026-10-03T12:00:00Z', updatedAt: '2026-10-03T12:00:16Z' }];
+  const [row] = buildItems({ runs, jobsByRun: new Map(), expandedRuns: new Set(), expandedJobs: new Set(), head: 'x', now });
+  assert.equal(row.meta, 'push · abc · attempt 2 · 16s · 9m ago');
 });
