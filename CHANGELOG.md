@@ -1,3 +1,9 @@
+## v0.5.0 (2026-10-03)
+
+### Feat
+
+- **pane**: flat or by-commit layout (v) and a shortcuts footer (?)
+
 ## v0.4.0 (2026-10-03)
 
 ### Feat
