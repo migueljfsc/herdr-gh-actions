@@ -1,5 +1,15 @@
 ## v1.0.0 (2026-10-03)
 
+First stable release. Everything from the 0.x series, now with a documented, stable surface:
+
+- **Sidebar token** `$ci` per workspace and per agent pane (`↑ pushed` · `◌ CI` · `✓ CI` · `✗ CI` · `⚠ CI`), from a poller per herdr session
+- **Pane** with commits → runs → jobs → steps, grouped by commit or as a flat list (`v`, remembered), older commits on demand (`▾ more` / `m`)
+- **Logs**: full or failed steps only, inside the pane
+- **Actions**: re-run failed or all jobs and cancel, per run or per commit; dispatch a `workflow_dispatch` workflow and follow its run
+- **Shortcuts footer** with the keys for the selected row, `?` for all of them
+- **Notifications** when a watched run fails
+- **Accounts** per repo owner, for work and personal `gh` logins
+
 ## v0.6.1 (2026-10-03)
 
 ### Fix
