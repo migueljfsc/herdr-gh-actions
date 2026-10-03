@@ -1,3 +1,9 @@
+## v1.1.0 (2026-10-03)
+
+### Feat
+
+- move a running poller onto the installed version after an update
+
 ## v1.0.0 (2026-10-03)
 
 First stable release. Everything from the 0.x series, now with a documented, stable surface:
