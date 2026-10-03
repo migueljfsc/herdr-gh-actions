@@ -124,19 +124,24 @@ function nudgeDaemon() {
   } catch {}
 }
 
+// Expands and selects the run a dispatch created (before jobs load, so its jobs come with this poll).
+// Returns the status-line message, if any.
 function watchDispatch() {
-  if (!S.watch) return;
+  if (!S.watch) return null;
   const run = findDispatchedRun(S.runs, S.watch);
   if (run) {
     S.expandedRuns.add(run.databaseId);
     S.selectedKey = `run:${run.databaseId}`;
-    S.status = { ...S.status, message: `watching ${run.workflowName} #${run.databaseId}`, messageSgr: '32' };
     S.watch = null;
     nudgeDaemon();
-  } else if (Date.now() > S.watch.until) {
-    S.status = { ...S.status, message: `no run for ${S.watch.workflowName} yet; R to refresh`, messageSgr: '33' };
-    S.watch = null;
+    return { message: `watching ${run.workflowName} #${run.databaseId}`, messageSgr: '32' };
   }
+  if (Date.now() > S.watch.until) {
+    const message = `no run for ${S.watch.workflowName} yet; R to refresh`;
+    S.watch = null;
+    return { message, messageSgr: '33' };
+  }
+  return null;
 }
 
 async function loadJobs(runId) {
@@ -187,6 +192,7 @@ async function refresh() {
       S.selectedKey = `run:${S.runs[0].databaseId}`;
       S.firstLoad = false;
     }
+    const watched = watchDispatch();
     const ids = new Set(S.runs.map((r) => r.databaseId));
     for (const id of S.jobsByRun.keys()) if (!ids.has(id)) S.jobsByRun.delete(id);
     await Promise.all(
@@ -196,7 +202,7 @@ async function refresh() {
         .map((r) => loadJobs(r.databaseId)),
     );
     S.status = { updatedAt: clock(Date.now()), message: authWarning ? `⚠ gh auth fallback · updated ${clock(Date.now())}` : null, messageSgr: '33' };
-    watchDispatch();
+    if (watched) Object.assign(S.status, watched);
     if (S.log?.pending) await openLog(freshTarget(S.log.target), S.log.failedOnly, true);
   } catch (e) {
     S.status = { stale: true, message: e.message, messageSgr: '33' };
