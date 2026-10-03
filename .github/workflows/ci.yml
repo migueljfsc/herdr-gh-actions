@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,7 +31,7 @@ jobs:
       # The bins run only under herdr, so nothing imports them in tests; a syntax check catches
       # what the unit tests can't reach.
       - name: syntax check
-        run: for f in bin/*.js lib/*.js; do node --check "$f"; done
+        run: for f in bin/*.js lib/*.js scripts/*.js; do node --check "$f"; done
 
       - run: npm test
 
