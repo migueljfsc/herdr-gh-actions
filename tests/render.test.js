@@ -226,3 +226,13 @@ test('buildFlatItems: one row per run newest first, limited to the newest commit
   const [row] = buildFlatItems({ runs: dispatched, jobsByRun: new Map(), expandedRuns: new Set(), expandedJobs: new Set(), head: null, now, subjects: new Map([['ddd', 'chore: bump']]) });
   assert.equal(row.label, 'ci · chore: bump');
 });
+
+test('a more row closes both layouts only when there is something older', async () => {
+  const { buildItems, buildFlatItems } = await import('../lib/render.js');
+  const runs = [{ databaseId: 1, status: 'completed', conclusion: 'success', headSha: 'a', workflowName: 'ci', displayTitle: 't', event: 'push', createdAt: '2026-10-03T12:00:00Z', updatedAt: '2026-10-03T12:01:00Z' }];
+  const base = { runs, jobsByRun: new Map(), expandedCommits: new Set(), expandedRuns: new Set(), expandedJobs: new Set(), head: null, now: Date.parse('2026-10-03T12:10:00Z') };
+  assert.equal(buildItems(base).at(-1).key, 'commit:a');
+  const grouped = buildItems({ ...base, more: '10 more commits' }).at(-1);
+  assert.deepEqual([grouped.key, grouped.type, grouped.label], ['more', 'more', '10 more commits']);
+  assert.equal(buildFlatItems({ ...base, more: 'more runs' }).at(-1).label, 'more runs');
+});

@@ -30,6 +30,11 @@ function saveLayout(layout) {
   } catch {}
 }
 
+// Runs are read in steps of 100 until they cover the commits on show (commitLimit + 1, to know
+// whether older ones exist) or the branch has no more runs. The ceiling only stops a runaway loop.
+const RUN_STEP = 100;
+const RUN_CEILING = 5000;
+
 const S = {
   repo: null,
   branch: null,
@@ -58,8 +63,12 @@ const S = {
   status: { loading: true },
   empty: 'loading…',
   firstLoad: true,
+  commitLimit: config.commits_per_branch,
+  runLimit: RUN_STEP,
+  olderOnServer: false,
   timer: null,
   busy: false,
+  again: false,
   confirm: null,
   layout: loadLayout(),
   keysOpen: false,
@@ -69,10 +78,12 @@ const S = {
 };
 
 const DISPATCH_WATCH_MS = 120000;
-// One API call: enough runs to fill commits_per_branch commits even with several workflows per push.
-const PANE_RUN_LIMIT = 100;
 
 const size = () => ({ cols: out.columns || 80, rows: out.rows || 24 });
+
+function hasMore() {
+  return new Set(S.runs.map((r) => r.headSha)).size > S.commitLimit || S.olderOnServer;
+}
 
 function footerModel() {
   const it = S.view === 'list' ? S.items[selectedIndex()] : null;
@@ -100,8 +111,9 @@ function rebuild() {
     expandedRuns: S.expandedRuns,
     expandedJobs: S.expandedJobs,
     head: S.oid,
-    commitLimit: config.commits_per_branch,
+    commitLimit: S.commitLimit,
     subjects: S.subjects,
+    more: hasMore() ? (S.layout === 'flat' ? 'more runs' : `${config.commits_per_branch} more commits`) : null,
   };
   S.items = S.layout === 'flat' ? buildFlatItems(args) : buildItems(args);
   if (!S.items.some((it) => it.key === S.selectedKey)) S.selectedKey = S.items[0]?.key ?? null;
@@ -198,7 +210,11 @@ async function loadJobs(runId) {
 }
 
 async function refresh() {
-  if (S.busy) return;
+  // A refresh asked for mid-fetch (R, m, an action) runs right after it instead of being dropped.
+  if (S.busy) {
+    S.again = true;
+    return;
+  }
   S.busy = true;
   S.status = { ...S.status, loading: true };
   draw();
@@ -216,6 +232,8 @@ async function refresh() {
     const bs = await git.branchState(S.repo.root);
     if (bs?.oid !== S.oid) S.headSeenAt = Date.now();
     if (bs?.head !== S.branch) {
+      S.commitLimit = config.commits_per_branch;
+      S.runLimit = RUN_STEP;
       S.expandedCommits.clear();
       S.userCommits.clear();
       S.newestSha = null;
@@ -231,7 +249,15 @@ async function refresh() {
       S.status = { updatedAt: clock(Date.now()) };
       return;
     }
-    const { runs, authWarning } = await gh.runList(S.repo.owner, S.repo.repo, S.branch, PANE_RUN_LIMIT);
+    let runs;
+    let authWarning;
+    for (;;) {
+      ({ runs, authWarning } = await gh.runList(S.repo.owner, S.repo.repo, S.branch, S.runLimit));
+      const commits = new Set(runs.map((r) => r.headSha)).size;
+      if (runs.length < S.runLimit || commits > S.commitLimit || S.runLimit >= RUN_CEILING) break;
+      S.runLimit += RUN_STEP;
+    }
+    S.olderOnServer = runs.length >= S.runLimit;
     S.runs = sortRuns(runs);
     S.empty = 'no runs for this branch';
     followNewestCommit();
@@ -253,12 +279,15 @@ async function refresh() {
   } finally {
     S.busy = false;
     draw();
-    schedule();
+    if (S.again) {
+      S.again = false;
+      refreshSoon(0);
+    } else schedule();
   }
 }
 
 async function loadSubjects() {
-  const shas = [...new Set(S.runs.map((r) => r.headSha))].slice(0, config.commits_per_branch).filter((sha) => !S.subjects.has(sha));
+  const shas = [...new Set(S.runs.map((r) => r.headSha))].slice(0, S.commitLimit).filter((sha) => !S.subjects.has(sha));
   // null caches "not in the local clone"; the commit row then falls back to the runs' title.
   await Promise.all(shas.map(async (sha) => S.subjects.set(sha, await git.subject(S.repo.root, sha).catch(() => null))));
 }
@@ -399,6 +428,17 @@ function askCommitAction(action, commit) {
   draw();
 }
 
+// Next batch of commits; the selection stays on the last row that was already shown.
+function loadMore() {
+  if (!hasMore()) return flash('no older runs on this branch', '2');
+  const i = S.items.findIndex((it) => it.key === 'more');
+  if (S.selectedKey === 'more' && i > 0) S.selectedKey = S.items[i - 1].key;
+  S.commitLimit += config.commits_per_branch;
+  flash('loading more…', '2');
+  clearTimeout(S.timer);
+  return refresh();
+}
+
 // Keep the selection across layouts: a commit row maps to its newest run; a run/job/step keeps its
 // key and, going back to commits, its commit is opened so the row stays visible.
 function switchLayout(it) {
@@ -522,6 +562,7 @@ async function handle({ action, y }) {
     }
     case 'enter':
       if (!it) break;
+      if (it.type === 'more') return loadMore();
       if (it.type === 'commit') {
         const sha = it.commit.sha;
         if (S.expandedCommits.has(sha)) S.expandedCommits.delete(sha);
@@ -535,12 +576,12 @@ async function handle({ action, y }) {
       break;
     case 'log':
     case 'failed':
-      if (it?.type === 'commit') return flash('select a run or job to see its log', '33');
+      if (it?.type === 'commit' || it?.type === 'more') return flash('select a run or job to see its log', '33');
       if (it) return openLog({ run: it.run, job: it.job ?? null }, action === 'failed');
       break;
     case 'open':
       if (it?.type === 'commit') openUrl(`https://github.com/${S.repo.owner}/${S.repo.repo}/commit/${it.commit.sha}`);
-      else if (it) openUrl(it.job?.url ?? it.run.url);
+      else if (it?.run) openUrl(it.job?.url ?? it.run.url);
       break;
     case 'rerun-failed':
     case 'rerun-all':
@@ -552,6 +593,8 @@ async function handle({ action, y }) {
     case 'layout':
       switchLayout(it);
       break;
+    case 'more':
+      return loadMore();
     case 'refresh':
       clearTimeout(S.timer);
       return refresh();

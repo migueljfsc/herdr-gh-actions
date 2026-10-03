@@ -27,7 +27,7 @@ test('SGR mouse: click, wheel, release ignored', () => {
 });
 
 test('? and v keys', () => {
-  assert.deepEqual(acts('?v'), ['keys', 'layout']);
+  assert.deepEqual(acts('?vm'), ['keys', 'layout', 'more']);
 });
 
 test('hintsFor offers only the actions that apply to the selected row', async () => {
@@ -41,6 +41,7 @@ test('hintsFor offers only the actions that apply to the selected row', async ()
   assert.equal(keys(hintsFor('list', { type: 'step' })), '↵ o');
   assert.deepEqual(hintsFor('list', null), []);
   assert.equal(keys(hintsFor('picker', null)), '↵ esc');
-  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['w', 'run workflow'], ['R', 'refresh']]]);
+  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['m', 'more commits'], ['w', 'run workflow'], ['R', 'refresh']]]);
+  assert.equal(keys(hintsFor('list', { type: 'more' })), '↵');
   assert.deepEqual(bandsFor('log', 'commit').map(([n]) => n), ['go']);
 });
