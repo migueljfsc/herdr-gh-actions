@@ -47,8 +47,8 @@ The poller starts with the herdr server. To start it now without restarting the 
 herdr plugin action invoke refresh --plugin migueljfsc.gh-actions
 ```
 
-To update, run the install command again and restart the herdr server so the poller picks up the new
-version.
+To update, run the install command again. The next `refresh`, pane toggle or new workspace moves the
+running poller onto the new version; no herdr restart needed.
 
 ## Setup
 
@@ -211,6 +211,9 @@ authenticated `gh` there). Its poller reports tokens for that machine's workspac
   run carries it yet.
 - The `refresh` action, the `workspace.created` / `worktree.created` events and pane actions wake the
   poller for an immediate tick.
+- The poller records its version and plugin root in `daemon.json`; when the `refresh` action, those
+  events or the pane toggle find it running other code (after an update), they restart it. The inline
+  `herdr-gh` pane never does, so a dev checkout can't take over the installed poller.
 - The pane polls `gh` itself and keeps your layout choice in `$HERDR_PLUGIN_STATE_DIR/pane.json`.
 
 ## Development
