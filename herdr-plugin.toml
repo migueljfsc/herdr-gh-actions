@@ -2,7 +2,7 @@ id = "migueljfsc.gh-actions"
 name = "GH Actions"
 version = "0.6.1"
 min_herdr_version = "0.9.0"
-description = "GitHub Actions status for each workspace's branch: sidebar token + runs/jobs/logs pane"
+description = "GitHub Actions per workspace branch: sidebar status token, a commits → runs → jobs → logs pane, re-run, cancel and dispatch"
 platforms = ["linux", "macos"]
 
 # herdr runs plugin commands with a minimal PATH, and pane commands resolve against the pane's
