@@ -175,3 +175,54 @@ test('buildItems prefers the local commit subject over run titles', async () => 
   assert.equal(buildItems(args)[0].label, 'abc1234 · ci');
   assert.equal(buildItems({ ...args, subjects: new Map([['abc1234def', 'chore(release): bump']]) })[0].label, 'abc1234 · chore(release): bump');
 });
+
+test('footer row 1: status left, actions right, ? last; overflow goes to the do band when open', async () => {
+  const { footerLines } = await import('../lib/render.js');
+  const actions = [['↵', 'jobs'], ['l', 'log'], ['f', 'failed steps'], ['x', 'rerun failed'], ['X', 'rerun all'], ['o', 'open']];
+  const bands = [['view', [['v', 'flat list'], ['w', 'run workflow'], ['R', 'refresh']]], ['go', [['j/k', 'move'], ['q', 'quit']]]];
+  const model = { status: { updatedAt: '12:00:00' }, footer: { actions, bands, open: false } };
+  const [row] = footerLines(model, 60);
+  assert.equal(w(row), 60);
+  assert.match(strip(row), /^updated 12:00:00 +↵ jobs · l log/);
+  assert.match(strip(row), / \?$/);
+  assert.doesNotMatch(strip(row), /rerun all/);
+  const open = footerLines({ ...model, footer: { ...model.footer, open: true } }, 60).map(strip);
+  assert.ok(open.length > 1);
+  assert.match(open[1], /^do {4}.*rerun all · o open/);
+  assert.ok(open.some((l) => /^view {2}v flat list · w run workflow · R refresh/.test(l)));
+  assert.ok(open.some((l) => /^go {4}j\/k move · q quit/.test(l)));
+  for (const l of footerLines({ ...model, footer: { ...model.footer, open: true } }, 60)) assert.equal(w(l), 60);
+});
+
+test('footer wraps a band that does not fit and keeps the body at least 3 rows', async () => {
+  const { footerLines, footerHeight } = await import('../lib/render.js');
+  const many = Array.from({ length: 12 }, (_, i) => [`k${i}`, `label${i}`]);
+  const model = { status: {}, footer: { actions: [], bands: [['go', many]], open: true } };
+  const lines = footerLines(model, 40).map(strip);
+  assert.ok(lines.length > 2);
+  assert.match(lines[2], /^ {6}k/);
+  assert.equal(footerHeight(model, 40, 8), 4);
+});
+
+test('long status is clipped, actions and ? stay', async () => {
+  const { footerLines } = await import('../lib/render.js');
+  const [row] = footerLines({ status: { message: 'x'.repeat(200) }, footer: { actions: [['o', 'open']], bands: [], open: false } }, 50);
+  assert.equal(w(row), 50);
+  assert.match(strip(row), /x…\s+o open {2}\?$/);
+});
+
+test('buildFlatItems: one row per run newest first, limited to the newest commits', async () => {
+  const { buildFlatItems } = await import('../lib/render.js');
+  const now = Date.parse('2026-10-03T12:10:00Z');
+  const mk = (id, sha, t, over = {}) => ({ databaseId: id, status: 'completed', conclusion: 'success', headSha: sha, workflowName: `wf${id}`, displayTitle: `t${sha}`, event: 'push', createdAt: t, updatedAt: t, ...over });
+  const runs = [mk(1, 'aaa', '2026-10-03T12:00:00Z'), mk(2, 'aaa', '2026-10-03T12:00:00Z'), mk(3, 'bbb', '2026-10-03T11:00:00Z'), mk(4, 'ccc', '2026-10-03T10:00:00Z')];
+  const items = buildFlatItems({ runs, jobsByRun: new Map(), expandedRuns: new Set([3]), expandedJobs: new Set(), head: 'aaa', now, commitLimit: 2 });
+  assert.deepEqual(items.map((i) => i.key), ['run:2', 'run:1', 'run:3', 'note:3']);
+  assert.equal(items[0].label, 'wf2 · taaa');
+  assert.equal(items[0].meta, 'push · aaa (HEAD) · 10m ago');
+  assert.equal(items[3].depth, 1);
+  assert.equal(items[2].commit.sha, 'bbb');
+  const dispatched = [mk(5, 'ddd', '2026-10-03T12:00:00Z', { event: 'workflow_dispatch', workflowName: 'ci', displayTitle: 'ci' })];
+  const [row] = buildFlatItems({ runs: dispatched, jobsByRun: new Map(), expandedRuns: new Set(), expandedJobs: new Set(), head: null, now, subjects: new Map([['ddd', 'chore: bump']]) });
+  assert.equal(row.label, 'ci · chore: bump');
+});

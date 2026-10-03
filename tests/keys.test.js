@@ -25,3 +25,22 @@ test('SGR mouse: click, wheel, release ignored', () => {
   assert.deepEqual(parseKeys('\x1b[<0;12;5M\x1b[<0;12;5m'), [{ action: 'click', x: 12, y: 5 }]);
   assert.deepEqual(acts('\x1b[<64;1;1M\x1b[<65;1;1M'), ['up', 'down']);
 });
+
+test('? and v keys', () => {
+  assert.deepEqual(acts('?v'), ['keys', 'layout']);
+});
+
+test('hintsFor offers only the actions that apply to the selected row', async () => {
+  const { hintsFor, bandsFor } = await import('../lib/keys.js');
+  const keys = (h) => h.map(([k]) => k).join(' ');
+  const done = { databaseId: 1, status: 'completed', conclusion: 'failure', workflowName: 'ci', displayTitle: 't', headSha: 'a' };
+  const busy = { ...done, status: 'in_progress', conclusion: null };
+  assert.equal(keys(hintsFor('list', { type: 'run', run: done, expanded: false })), '↵ l f x X o');
+  assert.equal(keys(hintsFor('list', { type: 'run', run: busy, expanded: true })), '↵ l f c o');
+  assert.equal(keys(hintsFor('list', { type: 'commit', commit: { sha: 'abcdef1', runs: [done] }, expanded: true })), '↵ x X o');
+  assert.equal(keys(hintsFor('list', { type: 'step' })), '↵ o');
+  assert.deepEqual(hintsFor('list', null), []);
+  assert.equal(keys(hintsFor('picker', null)), '↵ esc');
+  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['w', 'run workflow'], ['R', 'refresh']]]);
+  assert.deepEqual(bandsFor('log', 'commit').map(([n]) => n), ['go']);
+});

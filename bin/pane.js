@@ -1,14 +1,15 @@
 import { spawn } from 'node:child_process';
-import { loadConfig, configDir } from '../lib/config.js';
+import { join } from 'node:path';
+import { loadConfig, configDir, LAYOUTS } from '../lib/config.js';
 import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
 import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun } from '../lib/state.js';
-import { sessionDir } from '../lib/session.js';
+import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
 import { runningDaemon } from '../lib/daemon-ctl.js';
-import { renderPane, buildItems, formatLog, wrapLines, clampTop, followSelection } from '../lib/render.js';
-import { parseKeys } from '../lib/keys.js';
+import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, wrapLines, clampTop, followSelection } from '../lib/render.js';
+import { parseKeys, hintsFor, bandsFor } from '../lib/keys.js';
 
 const out = process.stdout;
 const { config } = loadConfig(configDir());
@@ -16,6 +17,18 @@ const { config } = loadConfig(configDir());
 const inline = process.argv.includes('--inline');
 const git = createGit();
 const gh = createGh({ accounts: config.accounts });
+
+// The layout last picked with `v` wins over the config default, across panes and restarts.
+const prefsPath = () => join(stateRoot(), 'pane.json');
+function loadLayout() {
+  const saved = readJson(prefsPath())?.layout;
+  return LAYOUTS.has(saved) ? saved : config.pane_layout;
+}
+function saveLayout(layout) {
+  try {
+    writeJsonAtomic(prefsPath(), { layout });
+  } catch {}
+}
 
 const S = {
   repo: null,
@@ -48,6 +61,8 @@ const S = {
   timer: null,
   busy: false,
   confirm: null,
+  layout: loadLayout(),
+  keysOpen: false,
   picker: null,
   workflows: null,
   watch: null,
@@ -58,7 +73,18 @@ const DISPATCH_WATCH_MS = 120000;
 const PANE_RUN_LIMIT = 100;
 
 const size = () => ({ cols: out.columns || 80, rows: out.rows || 24 });
-const bodyH = () => size().rows - 2;
+
+function footerModel() {
+  const it = S.view === 'list' ? S.items[selectedIndex()] : null;
+  return {
+    status: S.status,
+    confirm: S.confirm?.prompt,
+    footer: { actions: hintsFor(S.view, it), bands: bandsFor(S.view, S.layout), open: S.keysOpen },
+  };
+}
+
+// Rows under the header that the footer (one row, more with `?` open) leaves for the body.
+const bodyH = () => size().rows - 1 - footerHeight(footerModel(), size().cols, size().rows);
 const clock = (t) => new Date(t).toLocaleTimeString([], { hour12: false });
 
 function selectedIndex() {
@@ -67,7 +93,7 @@ function selectedIndex() {
 }
 
 function rebuild() {
-  S.items = buildItems({
+  const args = {
     runs: S.runs,
     jobsByRun: S.jobsByRun,
     expandedCommits: S.expandedCommits,
@@ -76,7 +102,8 @@ function rebuild() {
     head: S.oid,
     commitLimit: config.commits_per_branch,
     subjects: S.subjects,
-  });
+  };
+  S.items = S.layout === 'flat' ? buildFlatItems(args) : buildItems(args);
   if (!S.items.some((it) => it.key === S.selectedKey)) S.selectedKey = S.items[0]?.key ?? null;
   S.top = followSelection(S.top, selectedIndex(), bodyH());
 }
@@ -99,9 +126,8 @@ function draw() {
       top: S.top,
       log: S.log,
       picker: S.picker,
-      status: S.status,
       empty: S.empty,
-      confirm: S.confirm?.prompt,
+      ...footerModel(),
     },
     cols,
     rows,
@@ -215,7 +241,7 @@ async function refresh() {
     for (const id of S.jobsByRun.keys()) if (!ids.has(id)) S.jobsByRun.delete(id);
     await Promise.all(
       S.runs
-        .filter((r) => S.expandedCommits.has(r.headSha) && S.expandedRuns.has(r.databaseId))
+        .filter((r) => (S.layout === 'flat' || S.expandedCommits.has(r.headSha)) && S.expandedRuns.has(r.databaseId))
         .filter((r) => !S.jobsByRun.get(r.databaseId)?.jobs || r.status !== 'completed' || hasActiveJobs(r.databaseId))
         .map((r) => loadJobs(r.databaseId)),
     );
@@ -373,6 +399,19 @@ function askCommitAction(action, commit) {
   draw();
 }
 
+// Keep the selection across layouts: a commit row maps to its newest run; a run/job/step keeps its
+// key and, going back to commits, its commit is opened so the row stays visible.
+function switchLayout(it) {
+  S.layout = S.layout === 'commit' ? 'flat' : 'commit';
+  if (S.layout === 'flat' && it?.type === 'commit') S.selectedKey = `run:${it.commit.runs[0].databaseId}`;
+  if (S.layout === 'commit' && it?.commit) {
+    S.expandedCommits.add(it.commit.sha);
+    S.userCommits.add(it.commit.sha);
+  }
+  saveLayout(S.layout);
+  flash(S.layout === 'flat' ? 'flat list' : 'grouped by commit', '2');
+}
+
 async function openPicker() {
   if (!S.repo || !S.branch) return flash('no branch to run a workflow on', '33');
   const title = `Run workflow on ${S.branch}`;
@@ -422,6 +461,14 @@ async function handle({ action, y }) {
     return;
   }
   if (action === 'quit') return quit();
+  if (action === 'keys') {
+    S.keysOpen = !S.keysOpen;
+    return draw();
+  }
+  if (action === 'back' && S.keysOpen) {
+    S.keysOpen = false;
+    return draw();
+  }
   if (S.view === 'picker') {
     const p = S.picker;
     const viewH = bodyH() - 1;
@@ -502,6 +549,9 @@ async function handle({ action, y }) {
       return askRunAction(action, it?.run);
     case 'workflows':
       return openPicker();
+    case 'layout':
+      switchLayout(it);
+      break;
     case 'refresh':
       clearTimeout(S.timer);
       return refresh();

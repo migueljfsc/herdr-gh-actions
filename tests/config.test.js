@@ -32,8 +32,16 @@ test('invalid values fall back with warnings', () => {
   assert.equal(config.notify, 'fail');
   assert.equal(config.runs_per_branch, 20);
   assert.equal(config.commits_per_branch, 10);
+  assert.equal(config.pane_layout, 'commit');
   assert.deepEqual(config.accounts, {});
   assert.equal(warnings.length, 4);
+});
+
+test('pane_layout accepts commit or flat only', () => {
+  assert.equal(normalize({ pane_layout: 'flat' }).config.pane_layout, 'flat');
+  const bad = normalize({ pane_layout: 'tree' });
+  assert.equal(bad.config.pane_layout, 'commit');
+  assert.match(bad.warnings[0], /pane_layout/);
 });
 
 test('idle interval never below poll interval', () => {
