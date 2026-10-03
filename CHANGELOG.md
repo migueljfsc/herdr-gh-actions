@@ -1,3 +1,13 @@
+## v0.4.0 (2026-10-03)
+
+### Feat
+
+- **pane**: group runs by commit
+
+### Fix
+
+- read 20 runs per branch so the newest commit's status is complete
+
 ## v0.3.1 (2026-10-03)
 
 ### Fix
