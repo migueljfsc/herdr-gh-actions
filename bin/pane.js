@@ -596,6 +596,9 @@ async function handle({ action, y }) {
     case 'more':
       return loadMore();
     case 'refresh':
+      // A manual refresh also drops commits loaded with `more`, back to commits_per_branch.
+      S.commitLimit = config.commits_per_branch;
+      S.runLimit = RUN_STEP;
       clearTimeout(S.timer);
       return refresh();
   }

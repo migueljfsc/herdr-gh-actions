@@ -114,8 +114,8 @@ The footer shows the keys that apply to the selected row; `?` expands it into ev
 - **Flat**: one row per run, newest first, for the same commits.
 
 When older commits exist, the list ends in a `▾ 10 more commits` row: `Enter` on it (or `m` anywhere)
-loads the next batch, as far back as the branch's history goes. Loaded batches last until the pane
-closes or the branch changes.
+loads the next batch, as far back as the branch's history goes. `R` (refresh) goes back to the first
+`commits_per_branch` commits, as does closing the pane or switching branch.
 
 Re-run, cancel and dispatch ask `y/n` first and name the runs they act on.
 
