@@ -1,3 +1,9 @@
+## v0.6.0 (2026-10-03)
+
+### Feat
+
+- **pane**: load older commits with a more row or m
+
 ## v0.5.0 (2026-10-03)
 
 ### Feat
