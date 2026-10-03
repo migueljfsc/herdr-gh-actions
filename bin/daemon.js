@@ -1,7 +1,7 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sessionDir, writeJsonAtomic } from '../lib/session.js';
-import { pidFile, readPid, clearPid } from '../lib/daemon-ctl.js';
+import { pidFile, readPid, clearPid, writeDaemonInfo } from '../lib/daemon-ctl.js';
 import { loadConfig, configDir } from '../lib/config.js';
 import { createHerdr } from '../lib/herdr.js';
 import { createGit } from '../lib/git.js';
@@ -15,6 +15,7 @@ const socket = process.env.HERDR_SOCKET_PATH;
 const log = (msg) => console.log(`${new Date().toISOString()} ${msg}`);
 
 writeFileSync(pidFile(dir), String(process.pid));
+writeDaemonInfo(dir, process.pid);
 
 const { config, warnings } = loadConfig(configDir());
 warnings.forEach((w) => log(w));

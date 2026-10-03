@@ -3,10 +3,14 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { createHerdr } from '../lib/herdr.js';
 import { createGit } from '../lib/git.js';
-import { PLUGIN_ID } from '../lib/session.js';
+import { PLUGIN_ID, sessionDir } from '../lib/session.js';
+import { ensureDaemon } from '../lib/daemon-ctl.js';
 
 const herdr = createHerdr();
 const git = createGit();
+
+// Opening or closing the pane also moves a poller left on an older version (after an update) to this one.
+if (process.env.HERDR_PLUGIN_ROOT) await ensureDaemon(sessionDir()).catch(() => {});
 const pluginId = process.env.HERDR_PLUGIN_ID || PLUGIN_ID;
 
 function fail(msg) {
