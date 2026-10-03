@@ -1,3 +1,9 @@
+## v0.6.1 (2026-10-03)
+
+### Fix
+
+- **pane**: refresh goes back to the first commits_per_branch commits
+
 ## v0.6.0 (2026-10-03)
 
 ### Feat
