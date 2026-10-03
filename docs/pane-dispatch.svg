@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1099" height="164" viewBox="0 0 1099 164">
+<rect width="1099" height="164" rx="10" fill="#0d1117"/>
+<path d="M0 10a10 10 0 0 1 10-10h1079a10 10 0 0 1 10 10v22h-1099z" fill="#161b22"/>
+<circle cx="18" cy="16" r="6" fill="#ff5f56"/>
+<circle cx="38" cy="16" r="6" fill="#ffbd2e"/>
+<circle cx="58" cy="16" r="6" fill="#27c93f"/>
+<text x="549.5" y="21" fill="#8b949e" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" text-anchor="middle">herdr gh — run a workflow (w)</text>
+<g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14">
+<text x="16.0" y="62" fill="#c9d1d9" font-weight="bold" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs">migueljfsc/herdr-gh-actions</text>
+<text x="242.8" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs"> · </text>
+<text x="268.0" y="62" fill="#bc8cff" xml:space="preserve" textLength="33.6" lengthAdjust="spacingAndGlyphs">main</text>
+<text x="301.6" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="84.0" lengthAdjust="spacingAndGlyphs"> · 36ce4c4</text>
+<text x="16.0" y="82" fill="#c9d1d9" font-weight="bold" text-decoration="underline" xml:space="preserve" textLength="168.0" lengthAdjust="spacingAndGlyphs">Run workflow on main</text>
+<rect x="16.0" y="88" width="16.8" height="20" fill="#c9d1d9"/>
+<rect x="32.8" y="88" width="8.4" height="20" fill="#39c5cf"/>
+<text x="32.8" y="102" fill="#0d1117" xml:space="preserve" textLength="8.4" lengthAdjust="spacingAndGlyphs">▶</text>
+<rect x="41.2" y="88" width="8.4" height="20" fill="#c9d1d9"/>
+<rect x="49.6" y="88" width="58.8" height="20" fill="#c9d1d9"/>
+<text x="49.6" y="102" fill="#0d1117" font-weight="bold" xml:space="preserve" textLength="58.8" lengthAdjust="spacingAndGlyphs">release</text>
+<rect x="108.4" y="88" width="16.8" height="20" fill="#c9d1d9"/>
+<rect x="125.2" y="88" width="92.4" height="20" fill="#c9d1d9"/>
+<text x="125.2" y="102" fill="#0d1117" opacity="0.6" xml:space="preserve" textLength="92.4" lengthAdjust="spacingAndGlyphs">release.yml</text>
+<rect x="217.6" y="88" width="865.2" height="20" fill="#c9d1d9"/>
+<text x="16.0" y="142" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="142.8" lengthAdjust="spacingAndGlyphs">updated 17:11:21 </text>
+<text x="914.8" y="142" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="168.0" lengthAdjust="spacingAndGlyphs">j/k ↵ run · esc back</text>
+</g></svg>

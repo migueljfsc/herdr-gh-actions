@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1099" height="644" viewBox="0 0 1099 644">
+<rect width="1099" height="644" rx="10" fill="#0d1117"/>
+<path d="M0 10a10 10 0 0 1 10-10h1079a10 10 0 0 1 10 10v22h-1099z" fill="#161b22"/>
+<circle cx="18" cy="16" r="6" fill="#ff5f56"/>
+<circle cx="38" cy="16" r="6" fill="#ffbd2e"/>
+<circle cx="58" cy="16" r="6" fill="#27c93f"/>
+<text x="549.5" y="21" fill="#8b949e" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" text-anchor="middle">herdr gh — failed steps (f)</text>
+<g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14">
+<text x="16.0" y="62" fill="#c9d1d9" font-weight="bold" xml:space="preserve" textLength="226.8" lengthAdjust="spacingAndGlyphs">migueljfsc/herdr-gh-actions</text>
+<text x="242.8" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="25.2" lengthAdjust="spacingAndGlyphs"> · </text>
+<text x="268.0" y="62" fill="#bc8cff" xml:space="preserve" textLength="33.6" lengthAdjust="spacingAndGlyphs">main</text>
+<text x="301.6" y="62" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="84.0" lengthAdjust="spacingAndGlyphs"> · 36ce4c4</text>
+<text x="16.0" y="82" fill="#c9d1d9" font-weight="bold" text-decoration="underline" xml:space="preserve" textLength="327.6" lengthAdjust="spacingAndGlyphs">test (ubuntu-latest, 22) · failed steps</text>
+<text x="16.0" y="102" fill="#c9d1d9" font-weight="bold" xml:space="preserve" textLength="117.6" lengthAdjust="spacingAndGlyphs">▸ Run npm test</text>
+<text x="16.0" y="122" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">npm test                                                                                                                       </text>
+<text x="16.0" y="142" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">shell: /usr/bin/bash -e {0}                                                                                                    </text>
+<text x="16.0" y="182" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">&gt; herdr-gh-actions@0.1.0 test                                                                                                  </text>
+<text x="16.0" y="202" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">&gt; node --test tests/                                                                                                           </text>
+<text x="16.0" y="242" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">TAP version 13                                                                                                                 </text>
+<text x="16.0" y="262" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs"># node:internal/modules/cjs/loader:1433                                                                                        </text>
+<text x="16.0" y="282" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#   throw err;                                                                                                                 </text>
+<text x="16.0" y="302" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#   ^                                                                                                                          </text>
+<text x="16.0" y="322" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs"># Error: Cannot find module '/home/runner/work/herdr-gh-actions/herdr-gh-actions/tests'                                        </text>
+<text x="16.0" y="342" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)                                                  </text>
+<text x="16.0" y="362" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)                                                         </text>
+<text x="16.0" y="382" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)                                                     </text>
+<text x="16.0" y="402" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at Function._load (node:internal/modules/cjs/loader:1216:25)                                                             </text>
+<text x="16.0" y="422" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)                                                              </text>
+<text x="16.0" y="442" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)                                    </text>
+<text x="16.0" y="462" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#     at node:internal/main/run_main_module:36:49 {                                                                            </text>
+<text x="16.0" y="482" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#   code: 'MODULE_NOT_FOUND',                                                                                                  </text>
+<text x="16.0" y="502" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">#   requireStack: []                                                                                                           </text>
+<text x="16.0" y="522" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs"># }                                                                                                                            </text>
+<text x="16.0" y="542" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs"># Node.js v22.23.3                                                                                                             </text>
+<text x="16.0" y="562" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs"># Subtest: tests                                                                                                               </text>
+<text x="16.0" y="582" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">not ok 1 - tests                                                                                                               </text>
+<text x="16.0" y="602" fill="#c9d1d9" xml:space="preserve" textLength="1066.8" lengthAdjust="spacingAndGlyphs">  ---                                                                                                                          </text>
+<text x="16.0" y="622" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="142.8" lengthAdjust="spacingAndGlyphs">updated 17:11:21 </text>
+<text x="772.0" y="622" fill="#c9d1d9" opacity="0.6" xml:space="preserve" textLength="310.8" lengthAdjust="spacingAndGlyphs">j/k g/G PgUp/PgDn · esc back · q quit</text>
+</g></svg>
