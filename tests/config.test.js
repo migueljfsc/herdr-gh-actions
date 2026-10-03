@@ -40,8 +40,8 @@ test('idle interval never below poll interval', () => {
 });
 
 test('accountFor: exact (case-insensitive) beats *, null without match', () => {
-  const acc = { TravelReaktor: 'work', '*': 'me' };
-  assert.equal(accountFor(acc, 'travelreaktor'), 'work');
+  const acc = { WorkOrg: 'work', '*': 'me' };
+  assert.equal(accountFor(acc, 'workorg'), 'work');
   assert.equal(accountFor(acc, 'other'), 'me');
   assert.equal(accountFor({ X: 'x' }, 'other'), null);
 });
