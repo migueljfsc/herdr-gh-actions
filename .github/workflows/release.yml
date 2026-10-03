@@ -13,7 +13,14 @@ name: release
 on:
   push:
     branches: [main]
+  # A manual run can force the increment (e.g. MAJOR for a 1.0); `auto` lets the commits decide.
   workflow_dispatch:
+    inputs:
+      increment:
+        description: "Version increment"
+        type: choice
+        options: [auto, PATCH, MINOR, MAJOR]
+        default: auto
 
 permissions:
   contents: write
@@ -53,6 +60,7 @@ jobs:
         with:
           github_token: ${{ secrets.CZ_TOKEN || github.token }}
           changelog_increment_filename: body.md
+          increment: ${{ inputs.increment != 'auto' && inputs.increment || '' }}
 
       # Only when cz actually bumped - a push with no feat/fix produces no tag.
       - if: ${{ env.REVISION != '' }}
