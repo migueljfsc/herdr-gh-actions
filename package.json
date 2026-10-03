@@ -1,0 +1,14 @@
+{
+  "name": "herdr-gh-actions",
+  "version": "0.1.0",
+  "description": "herdr plugin: GitHub Actions status per workspace branch, sidebar token + runs/jobs/logs pane",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}

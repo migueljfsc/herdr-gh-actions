@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run the GH Actions UI in the current pane; quitting returns to the shell.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+exec node "$(dirname "$(realpath "$0")")/pane.js" --inline "$@"

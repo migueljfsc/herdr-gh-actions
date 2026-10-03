@@ -1,0 +1,38 @@
+id = "migueljfsc.gh-actions"
+name = "GH Actions"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "GitHub Actions status for each workspace's branch: sidebar token + runs/jobs/logs pane"
+platforms = ["linux", "macos"]
+
+# herdr runs plugin commands with a minimal PATH, and pane commands resolve against the pane's
+# cwd (the repo), so every entry point runs node by absolute path under the plugin root.
+
+[[startup]]
+command = ["sh", "-c", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; exec node \"$HERDR_PLUGIN_ROOT/bin/startup.js\""]
+
+[[actions]]
+id = "toggle"
+title = "GH Actions: toggle pane"
+contexts = ["workspace", "tab", "pane"]
+command = ["sh", "-c", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; exec node \"$HERDR_PLUGIN_ROOT/bin/toggle.js\""]
+
+[[actions]]
+id = "refresh"
+title = "GH Actions: refresh"
+contexts = ["workspace", "tab", "pane"]
+command = ["sh", "-c", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; exec node \"$HERDR_PLUGIN_ROOT/bin/refresh.js\""]
+
+[[events]]
+on = "workspace.created"
+command = ["sh", "-c", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; exec node \"$HERDR_PLUGIN_ROOT/bin/refresh.js\" --quiet"]
+
+[[events]]
+on = "worktree.created"
+command = ["sh", "-c", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; exec node \"$HERDR_PLUGIN_ROOT/bin/refresh.js\" --quiet"]
+
+[[panes]]
+id = "runs"
+title = "GH Actions"
+placement = "split"
+command = ["sh", "-c", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; exec node \"$HERDR_PLUGIN_ROOT/bin/pane.js\""]

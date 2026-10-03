@@ -1,0 +1,11 @@
+{
+  "poll_seconds": 10,
+  "idle_poll_seconds": 60,
+  "notify": "fail",
+  "runs_per_branch": 5,
+  "pushed_grace_seconds": 300,
+  "accounts": {
+    "my-work-org": "my-work-login",
+    "*": "my-personal-login"
+  }
+}
