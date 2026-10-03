@@ -1,6 +1,6 @@
 {
   "name": "herdr-gh-actions",
-  "version": "0.6.1",
+  "version": "1.0.0",
   "description": "herdr plugin: GitHub Actions per workspace branch — sidebar status token, commits/runs/jobs/logs pane, re-run, cancel and dispatch",
   "type": "module",
   "private": true,
