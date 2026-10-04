@@ -226,3 +226,12 @@ test('download: other failures are not retried', async () => {
   const gh = createGh({ exec: async () => ({ code: 1, stdout: '', stderr: 'HTTP 410: Artifact has expired' }), execToFile: async () => assert.fail('no fallback'), baseEnv: {} });
   await assert.rejects(gh.download('o', 'r', 9, { id: 1, name: 'x' }, '/nonexistent/x'), /expired/);
 });
+
+test('deployment review argv builders', async () => {
+  const { pendingDeploymentsArgs, reviewDeploymentsArgs } = await import('../lib/gh.js');
+  assert.deepEqual(pendingDeploymentsArgs('o', 'r', 9), ['api', 'repos/o/r/actions/runs/9/pending_deployments']);
+  assert.deepEqual(reviewDeploymentsArgs('o', 'r', 9, [11, 12], 'approved', 'ok'), [
+    'api', '-X', 'POST', 'repos/o/r/actions/runs/9/pending_deployments',
+    '-F', 'environment_ids[]=11', '-F', 'environment_ids[]=12', '-f', 'state=approved', '-f', 'comment=ok',
+  ]);
+});

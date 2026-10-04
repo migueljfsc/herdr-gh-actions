@@ -538,6 +538,50 @@ function openPicker() {
   });
 }
 
+// Environments a waiting run needs approval for: an approve and a reject row per environment.
+function openDeployments(run) {
+  if (!run) return flash('select a run', '33');
+  if (run.status !== 'waiting') return flash(`${run.workflowName} #${run.databaseId} is not waiting for a deployment review`, '33');
+  return showPicker({
+    title: `Review deployments of ${run.workflowName} #${run.databaseId}`,
+    verb: 'review',
+    loading: 'loading pending deployments…',
+    load: async () => {
+      const pending = await gh.pendingDeployments(S.repo.owner, S.repo.repo, run.databaseId);
+      const items = pending.flatMap((d) =>
+        ['approved', 'rejected'].map((state) => ({
+          key: `deploy:${d.environment.id}:${state}`,
+          env: d.environment,
+          state,
+          canApprove: d.current_user_can_approve,
+          depth: 0,
+          glyph: state === 'approved' ? ['✓', '32'] : ['✗', '31'],
+          label: `${state === 'approved' ? 'approve' : 'reject'} ${d.environment.name}`,
+          meta: d.current_user_can_approve ? null : 'not a reviewer',
+          dim: !d.current_user_can_approve,
+        })),
+      );
+      return { items, empty: 'no pending deployments' };
+    },
+    pick: (it) => {
+      if (!it.canApprove) return flash(`you can't review ${it.env.name}`, '33');
+      const verb = it.state === 'approved' ? 'approve' : 'reject';
+      S.confirm = {
+        prompt: `${verb} deployment of ${run.workflowName} #${run.databaseId} to ${it.env.name}?`,
+        run: async () => {
+          flash(`${verb === 'approve' ? 'approving' : 'rejecting'}…`, '2');
+          await gh.reviewDeployments(S.repo.owner, S.repo.repo, run.databaseId, [it.env.id], it.state, `${it.state} from herdr`);
+          S.view = 'list';
+          flash(`${it.env.name} ${it.state}`);
+          nudgeDaemon();
+          refreshSoon();
+        },
+      };
+      draw();
+    },
+  });
+}
+
 function openArtifacts(run) {
   if (!run) return flash('select a run to see its artifacts', '33');
   const dir = join(expandHome(config.artifact_dir), `${S.repo.repo}-${run.databaseId}`);
@@ -704,6 +748,8 @@ async function handle({ action, y, ch }) {
       return openPicker();
     case 'artifacts':
       return openArtifacts(it?.run);
+    case 'deployments':
+      return openDeployments(it?.run);
     case 'layout':
       switchLayout(it);
       break;
