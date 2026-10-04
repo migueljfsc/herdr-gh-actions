@@ -75,6 +75,7 @@ const S = {
   picker: null,
   workflows: null,
   watch: null,
+  pausedUntil: 0,
 };
 
 const DISPATCH_WATCH_MS = 120000;
@@ -157,7 +158,7 @@ function schedule() {
   clearTimeout(S.timer);
   const pushed = header()?.pushed;
   const secs = anyActive() || pushed || S.watch ? config.poll_seconds : config.idle_poll_seconds;
-  S.timer = setTimeout(refresh, secs * 1000);
+  S.timer = setTimeout(refresh, Math.max(secs * 1000, S.pausedUntil - Date.now()));
 }
 
 function refreshSoon(ms = 3000) {
@@ -275,7 +276,9 @@ async function refresh() {
     if (watched) Object.assign(S.status, watched);
     if (S.log?.pending) await openLog(freshTarget(S.log.target), S.log.failedOnly, true);
   } catch (e) {
-    S.status = { stale: true, message: e.message, messageSgr: '33' };
+    if (e.rateLimited) S.pausedUntil = e.resetAt ?? Date.now() + 60000;
+    const message = e.rateLimited ? `rate limited until ${clock(S.pausedUntil)}` : e.message;
+    S.status = { stale: true, message, messageSgr: '33' };
   } finally {
     S.busy = false;
     draw();
