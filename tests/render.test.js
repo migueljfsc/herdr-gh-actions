@@ -287,3 +287,15 @@ test('fmtSize', async () => {
   assert.equal(fmtSize(1536), '1.5 KB');
   assert.equal(fmtSize(50 * 1024 * 1024), '50 MB');
 });
+
+test('prSegments: number, review, merge state, failing external checks', async () => {
+  const { prSegments } = await import('../lib/render.js');
+  const text = (pr) => prSegments(pr).map(([t]) => t).join('');
+  assert.equal(text(null), '');
+  const pr = { number: 12, state: 'OPEN', draft: false, review: 'APPROVED', merge: 'DIRTY', external: { failing: 2, pending: 0 } };
+  assert.equal(text(pr), '  #12 · approved · conflicts · 2 external ✗');
+  assert.equal(text({ ...pr, draft: true, review: null, merge: 'CLEAN', external: { failing: 0, pending: 1 } }), '  #12 · draft · 1 external ◌');
+  assert.equal(text({ ...pr, state: 'MERGED' }), '  #12 · merged');
+  const lines = renderPane({ header: { owner: 'o', repo: 'r', branch: 'b', pr }, view: 'list', items: [], footer: { actions: [], bands: [] } }, 80, 4);
+  assert.match(lines[0], /#12/);
+});

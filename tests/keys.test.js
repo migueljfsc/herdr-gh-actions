@@ -61,7 +61,7 @@ test('hintsFor offers only the actions that apply to the selected row', async ()
   assert.equal(keys(hintsFor('list', { type: 'job', job: { conclusion: 'success' } })), '↵ l f o');
   assert.deepEqual(hintsFor('list', null), []);
   assert.equal(keys(hintsFor('picker', null)), '↵ esc');
-  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['m', 'more commits'], ['w', 'run workflow'], ['R', 'refresh']]]);
+  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['m', 'more commits'], ['w', 'run workflow'], ['p', 'open PR'], ['R', 'refresh']]]);
   assert.equal(keys(hintsFor('list', { type: 'more' })), '↵');
   assert.deepEqual(bandsFor('log', 'commit').map(([n]) => n), ['go']);
 });

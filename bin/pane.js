@@ -15,6 +15,7 @@ import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
 import { failedSteps, buildExcerpt, agentPrompt, agentTargets } from '../lib/excerpt.js';
 import { initialValue, missingInputs, inputFlags } from '../lib/dispatch-inputs.js';
+import { prSummary } from '../lib/pr.js';
 
 const out = process.stdout;
 const { config } = loadConfig(configDir());
@@ -82,6 +83,9 @@ const S = {
   watch: null,
   pausedUntil: 0,
   input: null,
+  // The branch's PR, read at most once per idle interval (R forces it): { branch, at, summary }.
+  pr: null,
+  prForce: false,
 };
 
 const DISPATCH_WATCH_MS = 120000;
@@ -131,7 +135,8 @@ function rebuild() {
 function header() {
   if (!S.repo) return null;
   const st = deriveStatus({ runs: S.runs, head: S.oid, headTime: S.headTime, skipCi: S.skipCi, ahead: S.ahead, behind: S.behind, upstream: S.upstream, headSeenAt: S.headSeenAt, pushedGraceMs: config.pushed_grace_seconds * 1000 });
-  return { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, headShort: S.oid?.slice(0, 7), pushed: st.kind === 'pushed', ahead: S.ahead };
+  const pr = S.pr?.branch === S.branch ? S.pr.summary : null;
+  return { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, headShort: S.oid?.slice(0, 7), pushed: st.kind === 'pushed', ahead: S.ahead, pr };
 }
 
 function draw() {
@@ -268,6 +273,8 @@ async function refresh() {
     S.olderOnServer = runs.length >= S.runLimit;
     S.runs = sortRuns(runs);
     S.empty = 'no runs for this branch';
+    refreshPr(S.prForce);
+    S.prForce = false;
     followNewestCommit();
     await loadSubjects();
     const watched = watchDispatch();
@@ -294,6 +301,20 @@ async function refresh() {
       refreshSoon(0);
     } else schedule();
   }
+}
+
+// In the background: a slow or failing PR lookup never holds up the run list.
+function refreshPr(force = false) {
+  const branch = S.branch;
+  if (!branch || (!force && S.pr?.branch === branch && Date.now() - S.pr.at < config.idle_poll_seconds * 1000)) return;
+  S.pr = { branch, at: Date.now(), summary: S.pr?.branch === branch ? S.pr.summary : null };
+  gh.prForBranch(S.repo.owner, S.repo.repo, branch)
+    .then((pr) => {
+      if (S.pr?.branch !== branch) return;
+      S.pr.summary = prSummary(pr);
+      draw();
+    })
+    .catch(() => {});
 }
 
 async function loadSubjects() {
@@ -914,7 +935,12 @@ async function handle({ action, y, ch }) {
       break;
     case 'more':
       return loadMore();
+    case 'pr':
+      if (S.pr?.branch === S.branch && S.pr.summary) openUrl(S.pr.summary.url);
+      else flash(`no pull request for ${S.branch}`, '33');
+      break;
     case 'refresh':
+      S.prForce = true;
       // A manual refresh also drops commits loaded with `more`, back to commits_per_branch.
       S.commitLimit = config.commits_per_branch;
       S.runLimit = RUN_STEP;
