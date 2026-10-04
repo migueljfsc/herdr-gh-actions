@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { loadConfig, configDir, expandHome, LAYOUTS } from '../lib/config.js';
 import { homedir } from 'node:os';
+import { mkdirSync, writeFileSync, chmodSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
@@ -12,6 +13,7 @@ import { runningDaemon } from '../lib/daemon-ctl.js';
 import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
 import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
+import { failedSteps, buildExcerpt, agentPrompt, agentTargets } from '../lib/excerpt.js';
 
 const out = process.stdout;
 const { config } = loadConfig(configDir());
@@ -582,6 +584,84 @@ function openDeployments(run) {
   });
 }
 
+const EXCERPT_TTL_MS = 7 * 24 * 3600 * 1000;
+
+// Excerpts can hold log lines GitHub didn't mask: owner-only, and pruned after a week.
+function writeExcerpt(name, text) {
+  const dir = join(stateRoot(), 'excerpts');
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  for (const f of readdirSync(dir)) {
+    try {
+      if (Date.now() - statSync(join(dir, f)).mtimeMs > EXCERPT_TTL_MS) rmSync(join(dir, f));
+    } catch {}
+  }
+  const path = join(dir, name);
+  writeFileSync(path, text, { mode: 0o600 });
+  chmodSync(path, 0o600);
+  return path;
+}
+
+// Types a one-line prompt pointing at a failure excerpt into an agent pane, without pressing Enter.
+async function deliverToAgent(pane, run, job) {
+  flash('collecting failed steps…', '2');
+  try {
+    const [raw, notes] = await Promise.all([
+      gh.jobLog(S.repo.owner, S.repo.repo, run.databaseId, job?.databaseId ?? null, true),
+      annotationLines({ run, job }, true),
+    ]);
+    const ctx = { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, sha: run.headSha, workflow: run.workflowName, job: job?.name, url: job?.url ?? run.url };
+    const path = writeExcerpt(`${S.repo.owner}-${S.repo.repo}-${run.databaseId}${job ? `-${job.databaseId}` : ''}.md`, buildExcerpt(ctx, failedSteps(raw), notes));
+    await createHerdr().call(['pane', 'send-text', pane.pane_id, agentPrompt(ctx, path)]);
+    if (S.view === 'picker') S.view = 'list';
+    flash(`sent to ${pane.agent} (${pane.pane_id}); press Enter there to submit`);
+  } catch (e) {
+    flash(`⚠ ${e.message}`, '33');
+  }
+}
+
+async function sendToAgent(it) {
+  const run = it?.run;
+  if (!run) return flash('select a failed run or job', '33');
+  const job = it.type === 'run' ? null : it.job;
+  if (!FAIL.has((job ?? run).conclusion)) return flash(`${(job ?? run).name ?? run.workflowName} has not failed`, '33');
+  if (!process.env.HERDR_SOCKET_PATH) return flash('agents need herdr: not running inside it', '33');
+  flash('looking for agents…', '2');
+  const self = process.env.HERDR_PANE_ID;
+  let targets;
+  try {
+    const panes = await createHerdr().paneList();
+    const agents = await Promise.all(
+      panes.filter((p) => p.agent).map(async (p) => ({ ...p, root: await git.toplevel(p.foreground_cwd || p.cwd).catch(() => null) })),
+    );
+    targets = agentTargets(agents, { root: S.repo.root, workspaceId: panes.find((p) => p.pane_id === self)?.workspace_id, selfId: self });
+  } catch (e) {
+    return flash(`⚠ ${e.message}`, '33');
+  }
+  if (!targets.length) return flash('no agent pane in this repo or workspace', '33');
+  if (targets.length === 1) {
+    const [p] = targets;
+    S.confirm = { prompt: `send ${job ? job.name : run.workflowName} failure to ${p.agent} (${p.pane_id})?`, run: () => deliverToAgent(p, run, job) };
+    return draw();
+  }
+  return showPicker({
+    title: `Send ${job ? job.name : run.workflowName} failure to an agent`,
+    verb: 'send',
+    loading: '',
+    load: async () => ({
+      items: targets.map((p) => ({
+        key: `agent:${p.pane_id}`,
+        pane: p,
+        depth: 0,
+        glyph: ['›', '36'],
+        label: `${p.agent} · ${p.pane_id}`,
+        meta: p.root === S.repo.root ? 'this repo' : (p.foreground_cwd || p.cwd),
+      })),
+      empty: 'no agents',
+    }),
+    pick: (row) => deliverToAgent(row.pane, run, job),
+  });
+}
+
 function openArtifacts(run) {
   if (!run) return flash('select a run to see its artifacts', '33');
   const dir = join(expandHome(config.artifact_dir), `${S.repo.repo}-${run.databaseId}`);
@@ -750,6 +830,8 @@ async function handle({ action, y, ch }) {
       return openArtifacts(it?.run);
     case 'deployments':
       return openDeployments(it?.run);
+    case 'agent':
+      return sendToAgent(it);
     case 'layout':
       switchLayout(it);
       break;
