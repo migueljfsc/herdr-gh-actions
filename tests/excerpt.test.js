@@ -48,10 +48,13 @@ test('agentTargets: same checkout first, then same workspace, never itself', () 
   assert.deepEqual(agentTargets(panes, { root: '/repo', workspaceId: 'w1', selfId: 'w1:p3' }).map((p) => p.pane_id), ['w2:p1', 'w1:p1']);
 });
 
-test('buildExcerpt: long lines cut to 500 characters', () => {
-  const md = buildExcerpt(ctx, [{ job: 'j', step: 's', lines: ['x'.repeat(2000)] }]);
+test('buildExcerpt: long lines cut to lineChars (500 by default, 0 keeps them whole)', () => {
+  const steps = [{ job: 'j', step: 's', lines: ['x'.repeat(2000)] }];
+  const md = buildExcerpt(ctx, steps);
   assert.ok(md.includes(`${'x'.repeat(499)}…`));
   assert.ok(!md.includes('x'.repeat(500)));
+  assert.ok(buildExcerpt(ctx, steps, [], { lineChars: 10 }).includes(`${'x'.repeat(9)}…\n`));
+  assert.ok(buildExcerpt(ctx, steps, [], { lineChars: 0 }).includes('x'.repeat(2000)));
 });
 
 test('buildExcerpt: maxBytes drops the oldest lines of the longest tails first', () => {

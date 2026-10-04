@@ -69,7 +69,9 @@ test('artifact_dir: non-empty string, ~ expands to home', async () => {
 
 test('excerpt limits: defaults and ranges', () => {
   const d = normalize({}).config;
-  assert.deepEqual([d.excerpt_max_bytes, d.excerpt_ttl_days, d.excerpt_keep], [1048576, 7, 20]);
+  assert.deepEqual([d.excerpt_max_bytes, d.excerpt_ttl_days, d.excerpt_keep, d.excerpt_line_chars], [1048576, 7, 20, 500]);
+  assert.equal(normalize({ excerpt_line_chars: 0 }).config.excerpt_line_chars, 0);
+  assert.equal(normalize({ excerpt_line_chars: -1 }).config.excerpt_line_chars, 500);
   const ok = normalize({ excerpt_max_bytes: 4096, excerpt_ttl_days: 1, excerpt_keep: 5 });
   assert.deepEqual([ok.config.excerpt_max_bytes, ok.config.excerpt_ttl_days, ok.config.excerpt_keep, ok.warnings.length], [4096, 1, 5, 0]);
   const bad = normalize({ excerpt_max_bytes: 10, excerpt_ttl_days: 0, excerpt_keep: 1.5 });

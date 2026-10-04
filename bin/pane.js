@@ -721,7 +721,7 @@ async function deliverToAgent(pane, run, job) {
       annotationLines({ run, job }, true),
     ]);
     const ctx = { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, sha: run.headSha, workflow: run.workflowName, job: job?.name, url: job?.url ?? run.url };
-    const path = writeExcerpt(`${S.repo.owner}-${S.repo.repo}-${run.databaseId}${job ? `-${job.databaseId}` : ''}.md`, buildExcerpt(ctx, failedSteps(raw), notes, { maxBytes: config.excerpt_max_bytes }));
+    const path = writeExcerpt(`${S.repo.owner}-${S.repo.repo}-${run.databaseId}${job ? `-${job.databaseId}` : ''}.md`, buildExcerpt(ctx, failedSteps(raw), notes, { maxBytes: config.excerpt_max_bytes, lineChars: config.excerpt_line_chars }));
     await createHerdr().call(['pane', 'send-text', pane.pane_id, agentPrompt(ctx, path)]);
     if (S.view === 'picker') S.view = 'list';
     flash(`sent to ${pane.agent} (${pane.pane_id}); press Enter there to submit`);

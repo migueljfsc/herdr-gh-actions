@@ -144,7 +144,7 @@ action asks `y/n` first and names the runs it acts on.
 `<artifact_dir>/<repo>-<run id>/<name>`.
 
 **Agents.** `a` on a failed run or job writes an excerpt (annotations and the last 80 lines of each
-failed step, each line cut to 500 characters, the file capped at `excerpt_max_bytes`) to
+failed step, each line cut to `excerpt_line_chars`, the file capped at `excerpt_max_bytes`) to
 `$HERDR_PLUGIN_STATE_DIR/excerpts/` and types a prompt pointing at it into an agent
 pane, left for you to submit. Agents whose checkout is this repo come first, then agents in the same
 workspace; it asks which one when there are several, and confirms when there is one. The log text
@@ -197,6 +197,7 @@ all keys optional:
   "excerpt_max_bytes": 1048576,
   "excerpt_ttl_days": 7,
   "excerpt_keep": 20,
+  "excerpt_line_chars": 500,
   "accounts": { "my-work-org": "my-work-login", "*": "my-personal-login" }
 }
 ```
@@ -214,6 +215,7 @@ all keys optional:
 | `excerpt_max_bytes` | 1048576 | size cap of one `a` excerpt file (1 KB – 100 MB) |
 | `excerpt_ttl_days` | 7 | days an excerpt is kept |
 | `excerpt_keep` | 20 | excerpts kept at most; the oldest go first |
+| `excerpt_line_chars` | 500 | characters kept per excerpt line, the rest cut to `…`; `0` keeps lines whole |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback |
 
 **Accounts.** Without `accounts`, `gh`'s active account is used for everything. Reading public repos
