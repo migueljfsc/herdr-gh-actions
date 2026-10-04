@@ -1,7 +1,7 @@
 {
   "name": "herdr-gh-actions",
   "version": "1.2.0",
-  "description": "herdr plugin: GitHub Actions per workspace branch — sidebar status token, commits/runs/jobs/logs pane, re-run, cancel and dispatch",
+  "description": "herdr plugin: GitHub Actions for workspaces and AI agents — CI status per workspace and agent worktree, commits/runs/jobs/logs pane, re-run, cancel and dispatch, failures handed back to agents",
   "type": "module",
   "private": true,
   "license": "MIT",
