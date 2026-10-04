@@ -105,8 +105,9 @@ herdr() {
 
 ## Using the pane
 
-The pane follows the repo and branch it was opened in. The footer shows the keys that apply to the
-selected row; `?` expands it into every shortcut.
+The pane follows the repo and branch it was opened in, and its label carries the plugin version
+(`GH Actions v1.2.0`). The footer shows the keys that apply to the selected row; `?` expands it into
+every shortcut.
 
 **Header.** Repo, branch and HEAD, then the branch's pull request (`#12 · approved · conflicts`, plus
 failing or pending checks from outside Actions, such as commit statuses from other CI) and,
