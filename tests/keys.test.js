@@ -10,7 +10,7 @@ test('letters and control keys', () => {
 });
 
 test('action keys', () => {
-  assert.deepEqual(acts('xXcwyn'), ['rerun-failed', 'rerun-all', 'cancel', 'workflows', 'yes', 'no']);
+  assert.deepEqual(acts('xXcwyn'), ['rerun-failed', 'rerun-all', 'cancel', 'workflows', 'yes', 'next']);
 });
 
 test('arrows and paging in one chunk', () => {
@@ -24,6 +24,23 @@ test('unknown escape sequences are skipped whole', () => {
 test('SGR mouse: click, wheel, release ignored', () => {
   assert.deepEqual(parseKeys('\x1b[<0;12;5M\x1b[<0;12;5m'), [{ action: 'click', x: 12, y: 5 }]);
   assert.deepEqual(acts('\x1b[<64;1;1M\x1b[<65;1;1M'), ['up', 'down']);
+});
+
+test('log search keys', () => {
+  assert.deepEqual(acts('/nNeE'), ['search', 'next', 'prev', 'error-next', 'error-prev']);
+});
+
+test('text mode: characters, editing keys, arrows; normal keys again once it ends', async () => {
+  const { keyStream } = await import('../lib/keys.js');
+  let typing = false;
+  const out = [];
+  for (const k of keyStream('/ab\x7fé\x1b[D\x15\rq', () => typing)) {
+    out.push(k.ch ?? k.action);
+    if (k.action === 'search') typing = true;
+    if (k.action === 'enter') typing = false;
+  }
+  assert.deepEqual(out, ['search', 'a', 'b', 'backspace', 'é', 'left', 'clear', 'enter', 'quit']);
+  assert.deepEqual(parseKeys('\x1bq', () => true).map((k) => k.action), ['back', 'char']);
 });
 
 test('? and v keys', () => {

@@ -9,7 +9,8 @@ import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun } fr
 import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
 import { runningDaemon } from '../lib/daemon-ctl.js';
 import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, wrapLines, clampTop, followSelection } from '../lib/render.js';
-import { parseKeys, hintsFor, bandsFor } from '../lib/keys.js';
+import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
+import { matchLines, errorLines, stepIndex } from '../lib/search.js';
 
 const out = process.stdout;
 const { config } = loadConfig(configDir());
@@ -76,6 +77,7 @@ const S = {
   workflows: null,
   watch: null,
   pausedUntil: 0,
+  input: null,
 };
 
 const DISPATCH_WATCH_MS = 120000;
@@ -87,10 +89,11 @@ function hasMore() {
 }
 
 function footerModel() {
-  const it = S.view === 'list' ? S.items[selectedIndex()] : null;
+  const it = S.view === 'list' ? S.items[selectedIndex()] : S.view === 'log' ? S.log : null;
   return {
     status: S.status,
     confirm: S.confirm?.prompt,
+    input: S.input,
     footer: { actions: hintsFor(S.view, it), bands: bandsFor(S.view, S.layout), open: S.keysOpen },
   };
 }
@@ -330,17 +333,19 @@ function stepSummary(job) {
 async function openLog(target, failedOnly, quiet = false) {
   const { run, job } = target;
   const title = `${job ? job.name : run.workflowName} · ${failedOnly ? 'failed steps' : 'log'}`;
+  // Reloading the same log keeps its search, including one typed while it loads.
+  const kept = () => (S.log && S.log.target.run.databaseId === run.databaseId && S.log.target.job?.databaseId === job?.databaseId ? S.log.query : null);
   const done = job ? job.status === 'completed' : run.status === 'completed';
   if (!done) {
     const lines = job ? stepSummary(job) : [];
     lines.push({ text: '', sgr: null }, { text: 'log available when the job completes; re-checking on poll', sgr: '2' });
-    S.log = { title, lines, top: 0, pending: true, target, failedOnly };
+    S.log = { title, lines, top: 0, pending: true, target, failedOnly, query: kept() };
     S.view = 'log';
     draw();
     return;
   }
   if (!quiet) {
-    S.log = { title, lines: [{ text: 'loading…', sgr: '2' }], top: 0, target, failedOnly };
+    S.log = { title, lines: [{ text: 'loading…', sgr: '2' }], top: 0, target, failedOnly, query: kept() };
     S.view = 'log';
     draw();
   }
@@ -348,9 +353,9 @@ async function openLog(target, failedOnly, quiet = false) {
     const raw = await gh.jobLog(S.repo.owner, S.repo.repo, run.databaseId, job?.databaseId ?? null, failedOnly);
     const lines = formatLog(raw);
     if (!lines.length) lines.push({ text: failedOnly ? 'no failed steps' : 'empty log', sgr: '2' });
-    S.log = { title, lines, top: 0, target, failedOnly };
+    S.log = { title, lines, top: 0, target, failedOnly, query: kept() };
   } catch (e) {
-    S.log = { title, lines: [{ text: `⚠ ${e.message}`, sgr: '33' }], top: 0, target, failedOnly };
+    S.log = { title, lines: [{ text: `⚠ ${e.message}`, sgr: '33' }], top: 0, target, failedOnly, query: kept() };
   }
   if (S.view === 'log') draw();
 }
@@ -372,6 +377,37 @@ function move(delta) {
 function scrollLog(delta) {
   const total = wrapLines(S.log.lines, size().cols).length;
   S.log.top = clampTop(S.log.top + delta, total, bodyH() - 1);
+}
+
+// Moves the log cursor to the next/previous of `indices` (source lines) and scrolls it into view
+// with two rows of context above.
+function logJump(indices, dir, what) {
+  const log = S.log;
+  const idx = stepIndex(indices, log.cursor ?? (dir > 0 ? -1 : Infinity), dir);
+  if (idx == null) return flash(`no ${what}`, '33');
+  log.cursor = idx;
+  const wrapped = wrapLines(log.lines, size().cols);
+  log.top = clampTop(wrapped.findIndex((l) => l.src === idx) - 2, wrapped.length, bodyH() - 1);
+  flash(`${what} ${indices.indexOf(idx) + 1}/${indices.length}`, '2');
+}
+
+// One-line text prompt in the footer; submit(value) runs on Enter, Esc cancels.
+function prompt(label, value, submit) {
+  S.input = { prompt: label, value, submit };
+  draw();
+}
+
+function handleInput({ action, ch }) {
+  const input = S.input;
+  if (action === 'char') input.value += ch;
+  else if (action === 'backspace') input.value = [...input.value].slice(0, -1).join('');
+  else if (action === 'clear') input.value = '';
+  else if (action === 'back') S.input = null;
+  else if (action === 'enter') {
+    S.input = null;
+    return input.submit(input.value);
+  }
+  draw();
 }
 
 async function toggleRun(run) {
@@ -490,7 +526,7 @@ function askDispatch(w) {
   draw();
 }
 
-async function handle({ action, y }) {
+async function handle({ action, y, ch }) {
   rebuild();
   if (S.confirm) {
     const c = S.confirm;
@@ -503,6 +539,7 @@ async function handle({ action, y }) {
     }
     return;
   }
+  if (S.input) return handleInput({ action, ch });
   if (action === 'quit') return quit();
   if (action === 'keys') {
     S.keysOpen = !S.keysOpen;
@@ -535,6 +572,17 @@ async function handle({ action, y }) {
     else if (action === 'top') scrollLog(-Infinity);
     else if (action === 'bottom') scrollLog(Number.MAX_SAFE_INTEGER);
     else if (action === 'refresh') await openLog(S.log.target, S.log.failedOnly);
+    else if (action === 'search')
+      return prompt('/', S.log.query ?? '', (q) => {
+        S.log.query = q || null;
+        S.log.cursor = null;
+        if (!q) return draw();
+        logJump(matchLines(S.log.lines, q), 1, `"${q}"`);
+      });
+    else if (action === 'next' || action === 'prev') {
+      if (!S.log.query) return flash('/ to search', '33');
+      return logJump(matchLines(S.log.lines, S.log.query), action === 'next' ? 1 : -1, `"${S.log.query}"`);
+    } else if (action === 'error-next' || action === 'error-prev') return logJump(errorLines(S.log.lines), action === 'error-next' ? 1 : -1, 'error');
     else if (action === 'open') openUrl(S.log.target.job?.url ?? S.log.target.run.url);
     return draw();
   }
@@ -613,7 +661,7 @@ function setup() {
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (chunk) => {
-    for (const k of parseKeys(chunk)) handle(k).catch(() => {});
+    for (const k of keyStream(chunk, () => S.input != null)) handle(k).catch(() => {});
   });
   out.on('resize', () => {
     out.write('\x1b[2J');

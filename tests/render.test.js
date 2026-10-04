@@ -236,3 +236,23 @@ test('a more row closes both layouts only when there is something older', async 
   assert.deepEqual([grouped.key, grouped.type, grouped.label], ['more', 'more', '10 more commits']);
   assert.equal(buildFlatItems({ ...base, more: 'more runs' }).at(-1).label, 'more runs');
 });
+
+test('wrapLines keeps source line and offset', () => {
+  assert.deepEqual(wrapLines([{ text: 'abcdef', sgr: '31' }], 4), [
+    { text: 'abcd', sgr: '31', src: 0, off: 0 },
+    { text: 'ef', sgr: '31', src: 0, off: 4 },
+  ]);
+});
+
+test('logRowSegments highlights matches inside one wrapped row', async () => {
+  const { logRowSegments } = await import('../lib/render.js');
+  const [a, b] = wrapLines([{ text: 'foo bar foo', sgr: null }], 6);
+  assert.deepEqual(logRowSegments(a, 'foo bar foo', 'foo', false), [['foo', '7'], [' ba', null]]);
+  assert.deepEqual(logRowSegments(b, 'foo bar foo', 'foo', true), [['r ', null], ['foo', '1;30;43']]);
+  assert.deepEqual(logRowSegments(a, 'foo bar foo', 'zzz', false), [['foo ba', null]]);
+});
+
+test('footer shows a text prompt while typing', () => {
+  const lines = renderPane({ view: 'list', items: [], input: { prompt: '/', value: 'err' }, footer: { actions: [], bands: [] } }, 20, 5);
+  assert.match(lines.at(-1), /\/.*err/);
+});
