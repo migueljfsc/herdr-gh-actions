@@ -1,6 +1,6 @@
 id = "migueljfsc.gh-actions"
 name = "GH Actions"
-version = "1.2.0"
+version = "1.3.0"
 min_herdr_version = "0.9.0"
 description = "GitHub Actions for herdr workspaces and AI agents: CI status per workspace and agent worktree, a commits → runs → jobs → logs pane, re-run, cancel and dispatch, failures handed back to agents"
 platforms = ["linux", "macos"]

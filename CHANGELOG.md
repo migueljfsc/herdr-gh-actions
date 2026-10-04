@@ -1,3 +1,9 @@
+## v1.3.0 (2026-10-04)
+
+### Feat
+
+- **pane**: excerpt limits, version in the pane label, AI agent docs (#3)
+
 ## v1.2.0 (2026-10-04)
 
 ### Feat
