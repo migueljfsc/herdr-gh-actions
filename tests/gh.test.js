@@ -69,6 +69,7 @@ test('action argv builders', async () => {
     'Accept: application/vnd.github.raw',
   ]);
   assert.deepEqual(workflowRunArgs('o', 'r', 123, 'main'), ['workflow', 'run', '123', '-R', 'o/r', '--ref', 'main']);
+  assert.deepEqual(workflowRunArgs('o', 'r', 123, 'main', ['-f', 'a=1']).slice(-2), ['-f', 'a=1']);
 });
 
 test('hasDispatchTrigger: block, flow, scalar, inputs; ignores comments and lookalikes', async () => {
@@ -97,12 +98,13 @@ test('workflows(): active on-disk workflows only, tagged dispatchable from file 
         stderr: '',
       };
     }
-    if (args[1].includes('publish.yml')) return { code: 0, stdout: 'on:\n  workflow_dispatch:\n', stderr: '' };
+    if (args[1].includes('publish.yml')) return { code: 0, stdout: 'on:\n  workflow_dispatch:\n    inputs:\n      tag:\n        required: true\n', stderr: '' };
     return { code: 0, stdout: 'on: [push]\n', stderr: '' };
   };
   const gh = createGh({ exec, baseEnv: {} });
   const list = await gh.workflows('o', 'r', 'main');
   assert.deepEqual(list.map((w) => [w.id, w.dispatchable]), [[1, false], [2, true]]);
+  assert.deepEqual(list[1].inputs.map((i) => [i.name, i.required]), [['tag', true]]);
 });
 
 test('classifyError: rate limits are not auth failures', async () => {

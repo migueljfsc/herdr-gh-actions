@@ -14,6 +14,7 @@ import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, format
 import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
 import { failedSteps, buildExcerpt, agentPrompt, agentTargets } from '../lib/excerpt.js';
+import { initialValue, missingInputs, inputFlags } from '../lib/dispatch-inputs.js';
 
 const out = process.stdout;
 const { config } = loadConfig(configDir());
@@ -509,8 +510,8 @@ function switchLayout(it) {
 }
 
 // A list to pick from. load() → { items, empty }; pick(item) runs on Enter; verb labels Enter.
-async function showPicker({ title, verb, loading, load, pick }) {
-  const p = { title, verb, pick, items: [], selected: 0, top: 0, empty: loading };
+async function showPicker({ title, verb, loading, load, pick, back }) {
+  const p = { title, verb, pick, back, items: [], selected: 0, top: 0, empty: loading };
   S.view = 'picker';
   S.picker = p;
   draw();
@@ -519,6 +520,7 @@ async function showPicker({ title, verb, loading, load, pick }) {
   } catch (e) {
     Object.assign(p, { items: [], empty: `⚠ ${e.message}` });
   }
+  p.top = followSelection(0, p.selected, bodyH() - 1);
   if (S.view === 'picker' && S.picker === p) draw();
 }
 
@@ -533,10 +535,81 @@ function openPicker() {
       const items = S.workflows.list
         .filter((w) => w.dispatchable)
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map((w) => ({ key: `wf:${w.id}`, workflow: w, depth: 0, glyph: ['▶', '36'], label: w.name, meta: w.path.split('/').pop() }));
+        .map((w) => {
+          const n = w.inputs?.length ?? 0;
+          return { key: `wf:${w.id}`, workflow: w, depth: 0, glyph: ['▶', '36'], label: w.name, meta: [w.path.split('/').pop(), n ? `${n} input${n === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ') };
+        });
       return { items, empty: `no workflow on ${S.branch} has a workflow_dispatch trigger` };
     },
-    pick: (it) => askDispatch(it.workflow),
+    pick: (it) => (it.workflow.inputs?.length ? showForm({ workflow: it.workflow, values: Object.fromEntries(it.workflow.inputs.map((i) => [i.name, initialValue(i)])) }) : askDispatch(it.workflow)),
+  });
+}
+
+const CHOOSE = new Set(['choice', 'environment']);
+
+function formItems({ workflow: w, values }) {
+  const rows = w.inputs.map((inp) => {
+    const v = values[inp.name];
+    const shown = inp.type === 'boolean' ? String(v) : v === '' ? '—' : v;
+    return {
+      key: `input:${inp.name}`,
+      input: inp,
+      depth: 0,
+      glyph: inp.type === 'boolean' ? (v ? ['☑', '32'] : ['☐', '2']) : ['›', '36'],
+      label: `${inp.name}${inp.required ? ' *' : ''} = ${shown}`,
+      meta: inp.description.split('\n')[0],
+      verb: inp.type === 'boolean' ? 'toggle' : CHOOSE.has(inp.type) ? 'choose' : 'edit',
+    };
+  });
+  return [...rows, { key: 'run', depth: 0, glyph: ['▶', '32'], label: `run ${w.name} on ${S.branch}`, verb: 'run' }];
+}
+
+// Dispatch form: a row per input and a run row; Esc goes back to the workflow list.
+function showForm(form, selected = 0) {
+  S.view = 'picker';
+  S.picker = {
+    title: `Run ${form.workflow.name} on ${S.branch}`,
+    items: formItems(form),
+    selected,
+    top: 0,
+    empty: '',
+    pick: (it) => editField(form, it),
+    back: () => openPicker(),
+  };
+  S.picker.top = followSelection(0, selected, bodyH() - 1);
+  draw();
+}
+
+function editField(form, it) {
+  const at = S.picker.selected;
+  if (it.key === 'run') {
+    const missing = missingInputs(form.workflow.inputs, form.values);
+    if (missing.length) return flash(`required: ${missing.join(', ')}`, '33');
+    return askDispatch(form.workflow, inputFlags(form.workflow.inputs, form.values));
+  }
+  const inp = it.input;
+  const set = (v) => {
+    form.values[inp.name] = v;
+    showForm(form, at);
+  };
+  if (inp.type === 'boolean') return set(!form.values[inp.name]);
+  if (CHOOSE.has(inp.type)) {
+    return showPicker({
+      title: `${inp.name}${inp.description ? ` · ${inp.description.split('\n')[0]}` : ''}`,
+      verb: 'choose',
+      loading: 'loading environments…',
+      load: async () => {
+        const options = inp.type === 'environment' ? await gh.environments(S.repo.owner, S.repo.repo) : inp.options;
+        const items = options.map((o) => ({ key: `opt:${o}`, value: o, depth: 0, glyph: o === form.values[inp.name] ? ['●', '32'] : ['○', '2'], label: o }));
+        return { items, selected: Math.max(0, options.indexOf(form.values[inp.name])), empty: 'no options' };
+      },
+      pick: (row) => set(row.value),
+      back: () => showForm(form, at),
+    });
+  }
+  return prompt(`${inp.name}: `, String(form.values[inp.name] ?? ''), (v) => {
+    if (inp.type === 'number' && v.trim() !== '' && !Number.isFinite(Number(v))) return flash(`${inp.name} must be a number`, '33');
+    set(v);
   });
 }
 
@@ -695,12 +768,14 @@ function openArtifacts(run) {
   });
 }
 
-function askDispatch(w) {
+// flags: `-f name=value` pairs from the dispatch form.
+function askDispatch(w, flags = []) {
+  const pairs = flags.filter((f) => f !== '-f');
   S.confirm = {
-    prompt: `run "${w.name}" on ${S.branch}?`,
+    prompt: `run "${w.name}" on ${S.branch}${pairs.length ? ` with ${pairs.join(' ')}` : ''}?`,
     run: async () => {
       flash(`dispatching ${w.name}…`, '2');
-      await gh.dispatch(S.repo.owner, S.repo.repo, w.id, S.branch);
+      await gh.dispatch(S.repo.owner, S.repo.repo, w.id, S.branch, flags);
       S.view = 'list';
       S.watch = { workflowName: w.name, since: Date.now(), until: Date.now() + DISPATCH_WATCH_MS };
       flash(`dispatched ${w.name}; waiting for its run…`);
@@ -737,8 +812,10 @@ async function handle({ action, y, ch }) {
   if (S.view === 'picker') {
     const p = S.picker;
     const viewH = bodyH() - 1;
-    if (action === 'back') S.view = 'list';
-    else if (action === 'up' || action === 'down') {
+    if (action === 'back') {
+      if (p.back) return p.back();
+      S.view = 'list';
+    } else if (action === 'up' || action === 'down') {
       p.selected = Math.max(0, Math.min(p.items.length - 1, p.selected + (action === 'up' ? -1 : 1)));
       p.top = followSelection(p.top, p.selected, viewH);
     } else if (action === 'click') {
