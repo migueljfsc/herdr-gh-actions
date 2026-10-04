@@ -83,7 +83,7 @@ for (const cols of [40, 80, 120]) {
     const lines = renderPane(model(), cols, 12);
     assert.equal(lines.length, 12);
     for (const l of lines) assert.equal(w(l), cols, JSON.stringify(strip(l)));
-    assert.match(strip(lines[0]), /^migueljfsc\/herdr-gh-actions/);
+    assert.match(strip(lines[0]), /^(migueljfsc\/)?herdr-gh-actions · /);
     assert.match(strip(lines[3]), /✗ test/);
   });
 
@@ -235,4 +235,81 @@ test('a more row closes both layouts only when there is something older', async 
   const grouped = buildItems({ ...base, more: '10 more commits' }).at(-1);
   assert.deepEqual([grouped.key, grouped.type, grouped.label], ['more', 'more', '10 more commits']);
   assert.equal(buildFlatItems({ ...base, more: 'more runs' }).at(-1).label, 'more runs');
+});
+
+test('wrapLines keeps source line and offset', () => {
+  assert.deepEqual(wrapLines([{ text: 'abcdef', sgr: '31' }], 4), [
+    { text: 'abcd', sgr: '31', src: 0, off: 0 },
+    { text: 'ef', sgr: '31', src: 0, off: 4 },
+  ]);
+});
+
+test('logRowSegments highlights matches inside one wrapped row', async () => {
+  const { logRowSegments } = await import('../lib/render.js');
+  const [a, b] = wrapLines([{ text: 'foo bar foo', sgr: null }], 6);
+  assert.deepEqual(logRowSegments(a, 'foo bar foo', 'foo', false), [['foo', '7'], [' ba', null]]);
+  assert.deepEqual(logRowSegments(b, 'foo bar foo', 'foo', true), [['r ', null], ['foo', '1;30;43']]);
+  assert.deepEqual(logRowSegments(a, 'foo bar foo', 'zzz', false), [['foo ba', null]]);
+});
+
+test('footer shows a text prompt while typing', () => {
+  const lines = renderPane({ view: 'list', items: [], input: { prompt: '/', value: 'err' }, footer: { actions: [], bands: [] } }, 20, 5);
+  assert.match(lines.at(-1), /\/.*err/);
+});
+
+test('formatAnnotations: per job, file location unless runner-level, multi-line messages indented', async () => {
+  const { formatAnnotations } = await import('../lib/render.js');
+  const lines = formatAnnotations([
+    {
+      job: 'test',
+      list: [
+        { path: 'lib/a.js', start_line: 3, annotation_level: 'failure', title: 'TypeError', message: 'x is undefined\nat f()' },
+        { path: '.github', start_line: 46, annotation_level: 'failure', title: '', message: 'Process completed with exit code 1.' },
+        { path: '.github', start_line: 1, annotation_level: 'warning', title: '', message: 'deprecated' },
+      ],
+    },
+    { job: 'lint', list: [{ path: '.github', start_line: 1, annotation_level: 'notice', message: 'runner image moves' }] },
+  ]);
+  assert.deepEqual(lines, [
+    { text: '▸ annotations · test', sgr: '1' },
+    { text: '✗ lib/a.js:3 TypeError: x is undefined', sgr: '31' },
+    { text: '  at f()', sgr: null },
+    { text: '✗ Process completed with exit code 1.', sgr: '31' },
+    { text: '! deprecated', sgr: '33' },
+    { text: '', sgr: null },
+  ]);
+  assert.deepEqual(formatAnnotations([{ job: 'x', list: [] }]), []);
+});
+
+test('fmtSize', async () => {
+  const { fmtSize } = await import('../lib/render.js');
+  assert.equal(fmtSize(512), '512 B');
+  assert.equal(fmtSize(1536), '1.5 KB');
+  assert.equal(fmtSize(50 * 1024 * 1024), '50 MB');
+});
+
+test('prSegments: number, review, merge state, failing external checks', async () => {
+  const { prSegments } = await import('../lib/render.js');
+  const text = (pr) => prSegments(pr).map(([t]) => t).join('');
+  assert.equal(text(null), '');
+  const pr = { number: 12, state: 'OPEN', draft: false, review: 'APPROVED', merge: 'DIRTY', external: { failing: 2, pending: 0 } };
+  assert.equal(text(pr), '  #12 · approved · conflicts · 2 external ✗');
+  assert.equal(text({ ...pr, draft: true, review: null, merge: 'CLEAN', external: { failing: 0, pending: 1 } }), '  #12 · draft · 1 external ◌');
+  assert.equal(text({ ...pr, state: 'MERGED' }), '  #12 · merged');
+  const lines = renderPane({ header: { owner: 'o', repo: 'r', branch: 'b', pr }, view: 'list', items: [], footer: { actions: [], bands: [] } }, 80, 4);
+  assert.match(lines[0], /#12/);
+});
+
+test('header shows the default branch status', () => {
+  const head = (base) => renderPane({ header: { owner: 'o', repo: 'r', branch: 'b', base }, view: 'list', items: [], footer: { actions: [], bands: [] } }, 60, 4)[0].replace(/\x1b\[[0-9;]*m/g, '');
+  assert.match(head({ name: 'main', status: 'failure' }), /o\/r · b  main ✗/);
+  assert.match(head({ name: 'main', status: 'running' }), /main ◌/);
+  assert.doesNotMatch(head(null), /main/);
+});
+
+test('narrow header drops the sha, then the owner', () => {
+  const head = (w) => renderPane({ header: { owner: 'owner', repo: 'repo', branch: 'feat', headShort: 'abc1234', base: { name: 'main', status: 'success' } }, view: 'list', items: [], footer: { actions: [], bands: [] } }, w, 4)[0].replace(/\x1b\[[0-9;]*m/g, '').trimEnd();
+  assert.equal(head(60), 'owner/repo · feat · abc1234  main ✓');
+  assert.equal(head(28), 'owner/repo · feat  main ✓');
+  assert.equal(head(20), 'repo · feat  main ✓');
 });

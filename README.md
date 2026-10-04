@@ -11,19 +11,22 @@ leaving the terminal.
 ![Commits, runs, jobs and steps for the current branch](docs/pane-runs.svg)
 
 - **Sidebar token** `$ci` per workspace and per agent pane: `↑ pushed` · `◌ CI 2m` · `✓ CI` · `✗ CI` · `⚠ CI`
-- **Pane** with the branch's commits → runs → jobs → steps, full or failed-only logs, grouped by
-  commit or as a flat list
+- **Pane** with the branch's commits → runs → jobs → steps, full or failed-only logs with search and
+  annotations, grouped by commit or as a flat list; the header shows the branch's PR and the default
+  branch's status
 - **Actions**: re-run failed or all jobs, cancel (per run or per commit), run a `workflow_dispatch`
-  workflow and follow its run
+  workflow with its inputs and follow its run, review pending deployments, download artifacts
+- **Agents**: hand a failed run or job to an agent pane in one key
 - **Notification** when a watched run fails (or on every finish)
 
 ## Why this one?
 
 - **Down to the log line.** Commits → runs → jobs → steps → logs (or failed steps only) inside the
-  pane, not just a status dot and a link to the browser.
+  pane, searchable, with the job's annotations on top.
 - **Branch-based, no PR needed.** Shows `↑ pushed` the moment you push, before GitHub has a run.
 - **Acts, not just watches.** Re-run, cancel and dispatch workflows on the current branch.
-- **Agent-aware.** Agents working in worktrees on other branches get their own status token.
+- **Agent-aware.** Agents working in worktrees on other branches get their own status token, and a
+  failure goes to an agent with `a`.
 - **Work and personal accounts.** Picks the `gh` login per repo owner.
 - **Stays out of the way.** A sidebar token you place yourself (it never rewrites workspace names),
   with a TTL so it clears itself if the poller dies.
@@ -105,6 +108,10 @@ herdr() {
 The pane follows the repo and branch it was opened in. The footer shows the keys that apply to the
 selected row; `?` expands it into every shortcut.
 
+**Header.** Repo, branch and HEAD, then the branch's pull request (`#12 · approved · conflicts`, plus
+failing or pending checks from outside Actions, such as commit statuses from other CI) and,
+on any other branch, the default branch's latest status (`main ✓`). `p` opens the PR.
+
 **Layouts** (`v` switches; the pane remembers your pick):
 
 - **By commit** (default): the branch's newest commits, each grouping the runs for that commit. Only
@@ -118,16 +125,30 @@ selected row; `?` expands it into every shortcut.
 `▾ 10 more commits` row: `Enter` on it (or `m` anywhere) loads the next batch, as far back as the
 branch goes. `R` goes back to the first batch.
 
-**Logs.** `l` opens the full log of a job (or a whole run), `f` only its failed steps. Logs exist
-once a job finishes; for a running job the log view shows live step status and loads the log when
-the job completes.
+**Logs.** `l` opens the full log of a job (or a whole run), `f` only its failed steps. A failed job's
+failure and warning annotations come first. Logs exist once a job finishes; for a running job the
+log view shows live step status and loads the log when the job completes. In a log, `/` searches
+(case-insensitive unless the query has a capital), `n`/`N` step through matches and `e`/`E` through
+error lines.
 
 ![Failed steps of a job](docs/pane-log.svg)
 
 **Actions.** `x` re-runs failed jobs, `X` all jobs, `c` cancels: on a run, or on every fitting run of
-a commit. `w` lists the workflows with a `workflow_dispatch` trigger, runs one on the current branch
-with its default inputs, then selects and follows the run it creates. Each action asks `y/n` first
-and names the runs it acts on.
+a commit. `w` lists the workflows with a `workflow_dispatch` trigger and runs one on the current
+branch, then selects and follows the run it creates. A workflow with inputs opens a form first:
+`Enter` toggles a boolean, picks a choice or environment, or edits text; required inputs are marked
+`*`. A run waiting on an environment's protection rules shows `⏸`; `d` approves or rejects it. Each
+action asks `y/n` first and names the runs it acts on.
+
+**Artifacts.** `s` lists a run's artifacts; `Enter` downloads one into
+`<artifact_dir>/<repo>-<run id>/<name>`.
+
+**Agents.** `a` on a failed run or job writes an excerpt (annotations and the last 80 lines of each
+failed step) to `$HERDR_PLUGIN_STATE_DIR/excerpts/` and types a prompt pointing at it into an agent
+pane, left for you to submit. Agents whose checkout is this repo come first, then agents in the same
+workspace; it asks which one when there are several, and confirms when there is one. The log text
+comes from your CI, so treat it like any other input you hand an agent, especially on PRs from forks.
+Excerpts are readable only by you and are removed after a week.
 
 ![Run a workflow on the current branch](docs/pane-dispatch.svg)
 
@@ -140,12 +161,18 @@ and names the runs it acts on.
 | `x` | re-run failed jobs of the selected run, or of every failed run of the selected commit |
 | `X` | re-run all jobs of the selected run, or of every finished run of the selected commit |
 | `c` | cancel the selected run, or every active run of the selected commit |
-| `w` | run a `workflow_dispatch` workflow on the current branch and follow its run |
+| `w` | run a `workflow_dispatch` workflow on the current branch (inputs first) and follow its run |
+| `d` | approve or reject the selected run's pending deployments |
+| `s` | list and download the selected run's artifacts |
+| `a` | send the selected failed run or job to an agent pane |
+| `p` | open the branch's pull request in the browser |
 | `v` | switch layout: by commit ↔ flat |
 | `m` | load older commits |
 | `o` | open the commit, run or job in the browser |
 | `R` | refresh now (and back to the first batch of commits) |
 | `g`/`G`, `PgUp`/`PgDn` | jump / page |
+| `/`, `n`/`N` | in a log: search, next / previous match |
+| `e`/`E` | in a log: next / previous error line |
 | `?` | show or hide all shortcuts |
 | `Esc` | back |
 | `q` | quit |
@@ -164,6 +191,7 @@ all keys optional:
   "commits_per_branch": 10,
   "pane_layout": "commit",
   "pushed_grace_seconds": 300,
+  "artifact_dir": "~/Downloads",
   "accounts": { "my-work-org": "my-work-login", "*": "my-personal-login" }
 }
 ```
@@ -177,6 +205,7 @@ all keys optional:
 | `commits_per_branch` | 10 | commits the pane lists at first, and per `▾ more` batch (1–50) |
 | `pane_layout` | `commit` | pane layout until you first press `v`: `commit` or `flat` |
 | `pushed_grace_seconds` | 300 | how long `↑ pushed` waits for a run before showing the last run's status |
+| `artifact_dir` | `~/Downloads` | where `s` saves artifacts, in a `<repo>-<run id>` folder |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback |
 
 **Accounts.** Without `accounts`, `gh`'s active account is used for everything. Reading public repos
@@ -196,6 +225,7 @@ authenticated `gh` there). Its poller reports tokens for that machine's workspac
 | no token in the sidebar | `$ci` is in your sidebar rows; the repo's `origin` is on GitHub; run the `refresh` action |
 | `⚠ CI` | `gh` can't read the repo: `gh auth status`, or map the owner in `accounts` |
 | "Must have admin rights" on re-run or dispatch | the account in use can't write to the repo: map it in `accounts` |
+| `rate limited until …` in the pane | GitHub's API limit for the account; polling resumes on its own at that time |
 | anything else | `herdr plugin log list --plugin migueljfsc.gh-actions` and the poller log below |
 
 ## How it works
@@ -205,8 +235,11 @@ authenticated `gh` there). Its poller reports tokens for that machine's workspac
   `status.json`), and it exits when its session's socket goes away.
 - Each tick: `herdr pane list` → the git checkout of each workspace (the first pane cwd inside a
   GitHub repo; ssh host aliases resolved with `ssh -G`) and of each agent pane → per checkout,
-  `git status --porcelain=v2 --branch` → `gh run list` (once per repo and branch) → tokens through
+  `git status --porcelain=v2 --branch` → the branch's runs (once per repo and branch) → tokens through
   `herdr workspace|pane report-metadata`, with a TTL of 3× the poll interval.
+- Runs are read through `gh api` with `If-None-Match`: an unchanged list comes back as `304 Not
+  Modified`, free of rate-limit cost. When the limit is hit, the poller
+  keeps the last tokens and waits for the reset time GitHub sends.
 - `↑ pushed` means HEAD is on its upstream, newer than the latest run, not marked `[skip ci]`, and no
   run carries it yet.
 - The `refresh` action, the `workspace.created` / `worktree.created` events and pane actions wake the
@@ -214,7 +247,8 @@ authenticated `gh` there). Its poller reports tokens for that machine's workspac
 - The poller records its version and plugin root in `daemon.json`; when the `refresh` action, those
   events or the pane toggle find it running other code (after an update), they restart it. The inline
   `herdr-gh` pane never does, so a dev checkout can't take over the installed poller.
-- The pane polls `gh` itself and keeps your layout choice in `$HERDR_PLUGIN_STATE_DIR/pane.json`.
+- The pane polls `gh` itself and keeps your layout choice in `$HERDR_PLUGIN_STATE_DIR/pane.json`. It
+  reads the branch's PR and the default branch's status at the idle interval.
 
 ## Development
 

@@ -63,3 +63,10 @@ test('branchState reads commit time and skip marker', async () => {
   assert.equal(st.time, 1791000000000);
   assert.equal(st.skipCi, true);
 });
+
+test('defaultBranch from origin/HEAD', async () => {
+  const git = createGit({ exec: async (cmd, args) => (args.includes('symbolic-ref') ? { code: 0, stdout: 'origin/develop\n', stderr: '' } : { code: 1, stdout: '', stderr: '' }) });
+  assert.equal(await git.defaultBranch('/r'), 'develop');
+  const none = createGit({ exec: async () => ({ code: 128, stdout: '', stderr: 'not a symbolic ref' }) });
+  assert.equal(await none.defaultBranch('/r'), null);
+});

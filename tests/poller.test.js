@@ -113,6 +113,39 @@ test('gh error → ⚠ CI and retried next tick', async () => {
   assert.deepEqual(reports.slice(2), ['✓ CI', '✓ CI']);
 });
 
+test('rate limit keeps the last status and pauses fetches until reset', async () => {
+  let clock = T0;
+  let limited = false;
+  let calls = 0;
+  const { config } = normalize({});
+  const reports = [];
+  const p = createPoller({
+    herdr: { paneList: async () => panes, reportToken: async (ws, o) => reports.push(o.value), notify: async () => {} },
+    git: { toplevel: async () => '/repo', githubRepo: async () => ({ owner: 'o', repo: 'r' }), branchState: async () => ({ oid: 'aaa', head: 'main', upstream: 'origin/main', ahead: 0 }) },
+    gh: {
+      runList: async () => {
+        calls += 1;
+        if (limited) throw Object.assign(new Error('rate limit'), { rateLimited: true, resetAt: T0 + 5 * 60000 });
+        return { runs: [mkRun()], authWarning: false };
+      },
+    },
+    config,
+    now: () => clock,
+  });
+  await p.tick();
+  limited = true;
+  await p.tick({ force: true });
+  assert.equal(calls, 2);
+  clock += 60000;
+  await p.tick({ force: true });
+  assert.equal(calls, 2);
+  assert.ok(reports.every((v) => v === '✓ CI'));
+  limited = false;
+  clock = T0 + 5 * 60000;
+  await p.tick({ force: true });
+  assert.equal(calls, 3);
+});
+
 test('workspace losing its repo clears the token', async () => {
   const list = [...panes];
   const s = setup({ panes: list, runs: { current: [mkRun()] } });

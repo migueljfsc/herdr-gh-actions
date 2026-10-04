@@ -10,7 +10,7 @@ test('letters and control keys', () => {
 });
 
 test('action keys', () => {
-  assert.deepEqual(acts('xXcwyn'), ['rerun-failed', 'rerun-all', 'cancel', 'workflows', 'yes', 'no']);
+  assert.deepEqual(acts('xXcwyn'), ['rerun-failed', 'rerun-all', 'cancel', 'workflows', 'yes', 'next']);
 });
 
 test('arrows and paging in one chunk', () => {
@@ -26,6 +26,23 @@ test('SGR mouse: click, wheel, release ignored', () => {
   assert.deepEqual(acts('\x1b[<64;1;1M\x1b[<65;1;1M'), ['up', 'down']);
 });
 
+test('log search keys', () => {
+  assert.deepEqual(acts('/nNeE'), ['search', 'next', 'prev', 'error-next', 'error-prev']);
+});
+
+test('text mode: characters, editing keys, arrows; normal keys again once it ends', async () => {
+  const { keyStream } = await import('../lib/keys.js');
+  let typing = false;
+  const out = [];
+  for (const k of keyStream('/ab\x7fé\x1b[D\x15\rq', () => typing)) {
+    out.push(k.ch ?? k.action);
+    if (k.action === 'search') typing = true;
+    if (k.action === 'enter') typing = false;
+  }
+  assert.deepEqual(out, ['search', 'a', 'b', 'backspace', 'é', 'left', 'clear', 'enter', 'quit']);
+  assert.deepEqual(parseKeys('\x1bq', () => true).map((k) => k.action), ['back', 'char']);
+});
+
 test('? and v keys', () => {
   assert.deepEqual(acts('?vm'), ['keys', 'layout', 'more']);
 });
@@ -35,13 +52,16 @@ test('hintsFor offers only the actions that apply to the selected row', async ()
   const keys = (h) => h.map(([k]) => k).join(' ');
   const done = { databaseId: 1, status: 'completed', conclusion: 'failure', workflowName: 'ci', displayTitle: 't', headSha: 'a' };
   const busy = { ...done, status: 'in_progress', conclusion: null };
-  assert.equal(keys(hintsFor('list', { type: 'run', run: done, expanded: false })), '↵ l f x X o');
-  assert.equal(keys(hintsFor('list', { type: 'run', run: busy, expanded: true })), '↵ l f c o');
+  assert.equal(keys(hintsFor('list', { type: 'run', run: done, expanded: false })), '↵ l f x X a s o');
+  assert.equal(keys(hintsFor('list', { type: 'run', run: busy, expanded: true })), '↵ l f c s o');
+  assert.equal(keys(hintsFor('list', { type: 'run', run: { ...busy, status: 'waiting' }, expanded: true })), '↵ l f c d s o');
   assert.equal(keys(hintsFor('list', { type: 'commit', commit: { sha: 'abcdef1', runs: [done] }, expanded: true })), '↵ x X o');
   assert.equal(keys(hintsFor('list', { type: 'step' })), '↵ o');
+  assert.equal(keys(hintsFor('list', { type: 'job', job: { conclusion: 'failure' } })), '↵ l f a o');
+  assert.equal(keys(hintsFor('list', { type: 'job', job: { conclusion: 'success' } })), '↵ l f o');
   assert.deepEqual(hintsFor('list', null), []);
   assert.equal(keys(hintsFor('picker', null)), '↵ esc');
-  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['m', 'more commits'], ['w', 'run workflow'], ['R', 'refresh']]]);
+  assert.deepEqual(bandsFor('list', 'flat')[0], ['view', [['v', 'group by commit'], ['m', 'more commits'], ['w', 'run workflow'], ['p', 'open PR'], ['R', 'refresh']]]);
   assert.equal(keys(hintsFor('list', { type: 'more' })), '↵');
   assert.deepEqual(bandsFor('log', 'commit').map(([n]) => n), ['go']);
 });
