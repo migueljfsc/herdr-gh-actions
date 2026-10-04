@@ -9,11 +9,11 @@ import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
 import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun, groupByCommit, commitStatus, FAIL } from '../lib/state.js';
 import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
-import { runningDaemon } from '../lib/daemon-ctl.js';
-import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
+import { runningDaemon, codeIdentity } from '../lib/daemon-ctl.js';
+import { renderPane, paneTitle, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
 import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
-import { failedSteps, buildExcerpt, agentPrompt, agentTargets } from '../lib/excerpt.js';
+import { failedSteps, buildExcerpt, agentPrompt, agentTargets, pruneExcerpts } from '../lib/excerpt.js';
 import { initialValue, missingInputs, inputFlags } from '../lib/dispatch-inputs.js';
 import { prSummary } from '../lib/pr.js';
 
@@ -697,20 +697,18 @@ function openDeployments(run) {
   });
 }
 
-const EXCERPT_TTL_MS = 7 * 24 * 3600 * 1000;
+const excerptDir = () => join(stateRoot(), 'excerpts');
+const pruneOldExcerpts = () => pruneExcerpts(excerptDir(), { ttlMs: config.excerpt_ttl_days * 24 * 3600 * 1000, keep: config.excerpt_keep, fs: { readdirSync, statSync, rmSync } });
 
-// Excerpts can hold log lines GitHub didn't mask: owner-only, and pruned after a week.
+// Excerpts can hold log lines GitHub didn't mask: owner-only, at most excerpt_keep of them, none
+// older than excerpt_ttl_days.
 function writeExcerpt(name, text) {
-  const dir = join(stateRoot(), 'excerpts');
+  const dir = excerptDir();
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  for (const f of readdirSync(dir)) {
-    try {
-      if (Date.now() - statSync(join(dir, f)).mtimeMs > EXCERPT_TTL_MS) rmSync(join(dir, f));
-    } catch {}
-  }
   const path = join(dir, name);
   writeFileSync(path, text, { mode: 0o600 });
   chmodSync(path, 0o600);
+  pruneOldExcerpts();
   return path;
 }
 
@@ -723,7 +721,7 @@ async function deliverToAgent(pane, run, job) {
       annotationLines({ run, job }, true),
     ]);
     const ctx = { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, sha: run.headSha, workflow: run.workflowName, job: job?.name, url: job?.url ?? run.url };
-    const path = writeExcerpt(`${S.repo.owner}-${S.repo.repo}-${run.databaseId}${job ? `-${job.databaseId}` : ''}.md`, buildExcerpt(ctx, failedSteps(raw), notes));
+    const path = writeExcerpt(`${S.repo.owner}-${S.repo.repo}-${run.databaseId}${job ? `-${job.databaseId}` : ''}.md`, buildExcerpt(ctx, failedSteps(raw), notes, { maxBytes: config.excerpt_max_bytes, lineChars: config.excerpt_line_chars }));
     await createHerdr().call(['pane', 'send-text', pane.pane_id, agentPrompt(ctx, path)]);
     if (S.view === 'picker') S.view = 'list';
     flash(`sent to ${pane.agent} (${pane.pane_id}); press Enter there to submit`);
@@ -970,6 +968,7 @@ async function handle({ action, y, ch }) {
 }
 
 function setup() {
+  pruneOldExcerpts();
   out.write('\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1006h\x1b[2J');
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
   process.stdin.setEncoding('utf8');
@@ -982,7 +981,7 @@ function setup() {
   });
   setInterval(() => anyActive() && S.view === 'list' && draw(), 1000).unref();
   for (const sig of ['SIGTERM', 'SIGHUP', 'SIGINT']) process.on(sig, () => quit({ close: false }));
-  if (inline && process.env.HERDR_PANE_ID) createHerdr().call(['pane', 'rename', process.env.HERDR_PANE_ID, 'GH Actions']).catch(() => {});
+  if (process.env.HERDR_PANE_ID) createHerdr().call(['pane', 'rename', process.env.HERDR_PANE_ID, paneTitle(codeIdentity().version)]).catch(() => {});
 }
 
 function restore() {

@@ -313,3 +313,9 @@ test('narrow header drops the sha, then the owner', () => {
   assert.equal(head(28), 'owner/repo · feat  main ✓');
   assert.equal(head(20), 'repo · feat  main ✓');
 });
+
+test('paneTitle carries the version when known', async () => {
+  const { paneTitle } = await import('../lib/render.js');
+  assert.equal(paneTitle('1.2.0'), 'GH Actions v1.2.0');
+  assert.equal(paneTitle(null), 'GH Actions');
+});

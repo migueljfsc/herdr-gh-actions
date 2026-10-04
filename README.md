@@ -4,9 +4,10 @@
 [![release](https://img.shields.io/github/v/release/migueljfsc/herdr-gh-actions)](https://github.com/migueljfsc/herdr-gh-actions/releases)
 [![license](https://img.shields.io/github/license/migueljfsc/herdr-gh-actions)](LICENSE)
 
-A [herdr](https://herdr.dev) plugin for GitHub Actions. It shows the CI status of the branch checked
-out in each workspace, and lets you drill into runs, read logs, re-run and dispatch workflows without
-leaving the terminal.
+A [herdr](https://herdr.dev) plugin for GitHub Actions, built for running AI coding agents side by
+side. It shows the CI status of every workspace and of every agent's worktree, lets you drill into
+runs, read logs, re-run and dispatch workflows without leaving the terminal, and hands a failed build
+back to the agent that caused it in one key.
 
 ![Commits, runs, jobs and steps for the current branch](docs/pane-runs.svg)
 
@@ -16,7 +17,7 @@ leaving the terminal.
   branch's status
 - **Actions**: re-run failed or all jobs, cancel (per run or per commit), run a `workflow_dispatch`
   workflow with its inputs and follow its run, review pending deployments, download artifacts
-- **Agents**: hand a failed run or job to an agent pane in one key
+- **AI agents**: a CI token per agent pane, and a failed run or job handed to an agent with `a`
 - **Notification** when a watched run fails (or on every finish)
 
 ## Why this one?
@@ -25,12 +26,38 @@ leaving the terminal.
   pane, searchable, with the job's annotations on top.
 - **Branch-based, no PR needed.** Shows `↑ pushed` the moment you push, before GitHub has a run.
 - **Acts, not just watches.** Re-run, cancel and dispatch workflows on the current branch.
-- **Agent-aware.** Agents working in worktrees on other branches get their own status token, and a
-  failure goes to an agent with `a`.
+- **Made for agents.** Each agent gets its own CI status for its worktree's branch, and a failure
+  goes back to the agent as a prompt it can act on (see [Working with AI agents](#working-with-ai-agents)).
 - **Work and personal accounts.** Picks the `gh` login per repo owner.
 - **Stays out of the way.** A sidebar token you place yourself (it never rewrites workspace names),
   with a TTL so it clears itself if the poller dies.
 - **Zero dependencies** beyond `node` and an authenticated `gh`.
+
+## Working with AI agents
+
+herdr runs coding agents in panes, often each in its own git worktree on its own branch. The plugin
+connects what an agent pushes with what CI says about it, and routes failures back to the agent:
+
+- **A CI token per agent.** Every agent pane gets its own `$ci` token for the branch its cwd is on,
+  so the sidebar shows which agent's push is pending, running, green or broken, next to the agent's
+  own state.
+- **New worktrees are picked up at once.** herdr's `worktree.created` and `workspace.created` events
+  wake the poller, so an agent starting in a fresh worktree has a token by its first push.
+- **Failures go back to the agent.** `a` on a failed run or job collects the failure annotations
+  and the end of each failed step's log into an excerpt file, then types a one-line prompt pointing
+  at it into the agent's pane: what failed, on which branch, the run URL and the file. Agents on the
+  same checkout come first, then agents in the same workspace.
+- **Sized for a context window.** An excerpt keeps the last lines of each failed step, where the error
+  usually is, cuts very long lines and stays under a byte cap, so the agent spends its context on the
+  failure itself. Limits are in [Configuration](#configuration).
+- **You stay in control.** `a` asks before it types into a pane, and the prompt waits in the agent's
+  input until you press Enter. CI output is untrusted input for an agent, more so on PRs from forks;
+  the review step is where you catch it.
+- **Notifications** tell you when an agent's run fails, so you know when to step in.
+
+A typical loop: an agent pushes, its token turns `◌ CI`, then `✗ CI`; a notification pops up; you
+open the pane, press `a` on the failed job, glance at the prompt in the agent's pane and press
+Enter. The agent reads the excerpt, fixes the build and pushes again.
 
 ## Requirements
 
@@ -105,8 +132,9 @@ herdr() {
 
 ## Using the pane
 
-The pane follows the repo and branch it was opened in. The footer shows the keys that apply to the
-selected row; `?` expands it into every shortcut.
+The pane follows the repo and branch it was opened in, and its label carries the plugin version
+(`GH Actions v1.2.0`). The footer shows the keys that apply to the selected row; `?` expands it into
+every shortcut.
 
 **Header.** Repo, branch and HEAD, then the branch's pull request (`#12 · approved · conflicts`, plus
 failing or pending checks from outside Actions, such as commit statuses from other CI) and,
@@ -144,11 +172,13 @@ action asks `y/n` first and names the runs it acts on.
 `<artifact_dir>/<repo>-<run id>/<name>`.
 
 **Agents.** `a` on a failed run or job writes an excerpt (annotations and the last 80 lines of each
-failed step) to `$HERDR_PLUGIN_STATE_DIR/excerpts/` and types a prompt pointing at it into an agent
+failed step, each line cut to `excerpt_line_chars`, the file capped at `excerpt_max_bytes`) to
+`$HERDR_PLUGIN_STATE_DIR/excerpts/` and types a prompt pointing at it into an agent
 pane, left for you to submit. Agents whose checkout is this repo come first, then agents in the same
 workspace; it asks which one when there are several, and confirms when there is one. The log text
 comes from your CI, so treat it like any other input you hand an agent, especially on PRs from forks.
-Excerpts are readable only by you and are removed after a week.
+Excerpts are readable only by you. The pane keeps the `excerpt_keep` newest and removes any older
+than `excerpt_ttl_days`, each time it starts and after each `a`.
 
 ![Run a workflow on the current branch](docs/pane-dispatch.svg)
 
@@ -192,6 +222,10 @@ all keys optional:
   "pane_layout": "commit",
   "pushed_grace_seconds": 300,
   "artifact_dir": "~/Downloads",
+  "excerpt_max_bytes": 1048576,
+  "excerpt_ttl_days": 7,
+  "excerpt_keep": 20,
+  "excerpt_line_chars": 500,
   "accounts": { "my-work-org": "my-work-login", "*": "my-personal-login" }
 }
 ```
@@ -206,6 +240,10 @@ all keys optional:
 | `pane_layout` | `commit` | pane layout until you first press `v`: `commit` or `flat` |
 | `pushed_grace_seconds` | 300 | how long `↑ pushed` waits for a run before showing the last run's status |
 | `artifact_dir` | `~/Downloads` | where `s` saves artifacts, in a `<repo>-<run id>` folder |
+| `excerpt_max_bytes` | 1048576 | size cap of one `a` excerpt file (1 KB – 100 MB) |
+| `excerpt_ttl_days` | 7 | days an excerpt is kept |
+| `excerpt_keep` | 20 | excerpts kept at most; the oldest go first |
+| `excerpt_line_chars` | 500 | characters kept per excerpt line, the rest cut to `…`; `0` keeps lines whole |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback |
 
 **Accounts.** Without `accounts`, `gh`'s active account is used for everything. Reading public repos
