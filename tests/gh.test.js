@@ -101,3 +101,32 @@ test('workflows(): active on-disk workflows only, tagged dispatchable from file 
   const list = await gh.workflows('o', 'r', 'main');
   assert.deepEqual(list.map((w) => [w.id, w.dispatchable]), [[1, false], [2, true]]);
 });
+
+test('classifyError: rate limits are not auth failures', async () => {
+  const { classifyError } = await import('../lib/gh.js');
+  assert.deepEqual(classifyError('HTTP 403: API rate limit exceeded for user ID 1. (https://api.github.com/...)'), { rateLimited: true, auth: false });
+  assert.deepEqual(classifyError('You have exceeded a secondary rate limit'), { rateLimited: true, auth: false });
+  assert.deepEqual(classifyError('HTTP 429: Too Many Requests'), { rateLimited: true, auth: false });
+  assert.deepEqual(classifyError('HTTP 401: Bad credentials'), { rateLimited: false, auth: true });
+  assert.deepEqual(classifyError('To get started with GitHub CLI, please run:  gh auth login'), { rateLimited: false, auth: true });
+  assert.deepEqual(classifyError('HTTP 403: Must have admin rights to Repository.'), { rateLimited: false, auth: false });
+});
+
+test('cached tokens survive a rate limit, drop on bad credentials', async () => {
+  let fail = null;
+  const calls = [];
+  const exec = async (cmd, args) => {
+    calls.push(args[0]);
+    if (args[0] === 'auth') return { code: 0, stdout: 'T\n', stderr: '' };
+    return fail ? { code: 1, stdout: '', stderr: fail } : { code: 0, stdout: '[]', stderr: '' };
+  };
+  const gh = createGh({ exec, accounts: { '*': 'me' }, baseEnv: {} });
+  await gh.runList('o', 'r', 'b', 1);
+  fail = 'HTTP 403: API rate limit exceeded';
+  await assert.rejects(gh.runList('o', 'r', 'b', 1), (e) => e.rateLimited && !e.auth);
+  fail = 'HTTP 401: Bad credentials';
+  await assert.rejects(gh.runList('o', 'r', 'b', 1), (e) => e.auth);
+  fail = null;
+  await gh.runList('o', 'r', 'b', 1);
+  assert.equal(calls.filter((c) => c === 'auth').length, 2);
+});
