@@ -1,3 +1,9 @@
+## v1.2.0 (2026-10-04)
+
+### Feat
+
+- pane workbench: log search, annotations, dispatch inputs, deployments, artifacts, agents, PR header (#1)
+
 ## v1.1.0 (2026-10-03)
 
 ### Feat
