@@ -256,3 +256,27 @@ test('footer shows a text prompt while typing', () => {
   const lines = renderPane({ view: 'list', items: [], input: { prompt: '/', value: 'err' }, footer: { actions: [], bands: [] } }, 20, 5);
   assert.match(lines.at(-1), /\/.*err/);
 });
+
+test('formatAnnotations: per job, file location unless runner-level, multi-line messages indented', async () => {
+  const { formatAnnotations } = await import('../lib/render.js');
+  const lines = formatAnnotations([
+    {
+      job: 'test',
+      list: [
+        { path: 'lib/a.js', start_line: 3, annotation_level: 'failure', title: 'TypeError', message: 'x is undefined\nat f()' },
+        { path: '.github', start_line: 46, annotation_level: 'failure', title: '', message: 'Process completed with exit code 1.' },
+        { path: '.github', start_line: 1, annotation_level: 'warning', title: '', message: 'deprecated' },
+      ],
+    },
+    { job: 'lint', list: [{ path: '.github', start_line: 1, annotation_level: 'notice', message: 'runner image moves' }] },
+  ]);
+  assert.deepEqual(lines, [
+    { text: '▸ annotations · test', sgr: '1' },
+    { text: '✗ lib/a.js:3 TypeError: x is undefined', sgr: '31' },
+    { text: '  at f()', sgr: null },
+    { text: '✗ Process completed with exit code 1.', sgr: '31' },
+    { text: '! deprecated', sgr: '33' },
+    { text: '', sgr: null },
+  ]);
+  assert.deepEqual(formatAnnotations([{ job: 'x', list: [] }]), []);
+});

@@ -5,10 +5,10 @@ import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
-import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun } from '../lib/state.js';
+import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun, FAIL } from '../lib/state.js';
 import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
 import { runningDaemon } from '../lib/daemon-ctl.js';
-import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, wrapLines, clampTop, followSelection } from '../lib/render.js';
+import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, wrapLines, clampTop, followSelection } from '../lib/render.js';
 import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
 
@@ -329,6 +329,20 @@ function stepSummary(job) {
   });
 }
 
+// Annotation lines for a failed job, or for each failed job of a run; [] when there are none.
+async function annotationLines({ run, job }, failedOnly) {
+  let jobs;
+  if (job) jobs = failedOnly || FAIL.has(job.conclusion) ? [job] : [];
+  else if (failedOnly || FAIL.has(run.conclusion)) {
+    if (!S.jobsByRun.get(run.databaseId)?.jobs) await loadJobs(run.databaseId);
+    jobs = (S.jobsByRun.get(run.databaseId)?.jobs ?? []).filter((j) => FAIL.has(j.conclusion));
+  } else jobs = [];
+  const groups = await Promise.all(
+    jobs.map(async (j) => ({ job: j.name, list: await gh.annotations(S.repo.owner, S.repo.repo, j.databaseId).catch(() => []) })),
+  );
+  return formatAnnotations(groups);
+}
+
 // target: { run, job? }. A job/run still running has no log yet: show steps and re-check on poll.
 async function openLog(target, failedOnly, quiet = false) {
   const { run, job } = target;
@@ -350,9 +364,9 @@ async function openLog(target, failedOnly, quiet = false) {
     draw();
   }
   try {
-    const raw = await gh.jobLog(S.repo.owner, S.repo.repo, run.databaseId, job?.databaseId ?? null, failedOnly);
-    const lines = formatLog(raw);
-    if (!lines.length) lines.push({ text: failedOnly ? 'no failed steps' : 'empty log', sgr: '2' });
+    const [raw, notes] = await Promise.all([gh.jobLog(S.repo.owner, S.repo.repo, run.databaseId, job?.databaseId ?? null, failedOnly), annotationLines(target, failedOnly)]);
+    const lines = [...notes, ...formatLog(raw)];
+    if (lines.length === notes.length) lines.push({ text: failedOnly ? 'no failed steps' : 'empty log', sgr: '2' });
     S.log = { title, lines, top: 0, target, failedOnly, query: kept() };
   } catch (e) {
     S.log = { title, lines: [{ text: `⚠ ${e.message}`, sgr: '33' }], top: 0, target, failedOnly, query: kept() };
