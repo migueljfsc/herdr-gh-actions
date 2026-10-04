@@ -194,3 +194,35 @@ test('runList: a rate-limited response carries when it resets', async () => {
   const gh = createGh({ exec, baseEnv: {} });
   await assert.rejects(gh.runList('o', 'r', 'b', 1), (e) => e.rateLimited && e.resetAt === 1700000);
 });
+
+test('artifact argv builders', async () => {
+  const { artifactsArgs, downloadArgs, annotationsArgs } = await import('../lib/gh.js');
+  assert.deepEqual(artifactsArgs('o', 'r', 9), ['api', 'repos/o/r/actions/runs/9/artifacts?per_page=100']);
+  assert.deepEqual(downloadArgs('o', 'r', 9, 'dist', '/d/r-9/dist'), ['run', 'download', '9', '-R', 'o/r', '-n', 'dist', '-D', '/d/r-9/dist']);
+  assert.deepEqual(annotationsArgs('o', 'r', 7), ['api', 'repos/o/r/check-runs/7/annotations?per_page=100']);
+});
+
+test('download: unarchived artifact falls back to the raw file', async () => {
+  const { mkdtempSync, existsSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(`${tmpdir()}/gh-dl-`);
+  const calls = [];
+  const exec = async (cmd, args) => {
+    calls.push(args.slice(0, 2).join(' '));
+    return { code: 1, stdout: '', stderr: 'error downloading report.html: error extracting zip archive: zip: not a valid zip file' };
+  };
+  const execToFile = async (cmd, args, file) => {
+    calls.push(`${args[1]} > ${file.slice(dir.length)}`);
+    return { code: 0, stdout: '', stderr: '' };
+  };
+  const gh = createGh({ exec, execToFile, baseEnv: {} });
+  const to = await gh.download('o', 'r', 9, { id: 77, name: 'report.html' }, `${dir}/r-9`);
+  assert.equal(to, `${dir}/r-9/report.html`);
+  assert.deepEqual(calls, ['run download', 'repos/o/r/actions/artifacts/77/zip > /r-9/report.html']);
+  assert.ok(existsSync(`${dir}/r-9`));
+});
+
+test('download: other failures are not retried', async () => {
+  const gh = createGh({ exec: async () => ({ code: 1, stdout: '', stderr: 'HTTP 410: Artifact has expired' }), execToFile: async () => assert.fail('no fallback'), baseEnv: {} });
+  await assert.rejects(gh.download('o', 'r', 9, { id: 1, name: 'x' }, '/nonexistent/x'), /expired/);
+});

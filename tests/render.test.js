@@ -280,3 +280,10 @@ test('formatAnnotations: per job, file location unless runner-level, multi-line 
   ]);
   assert.deepEqual(formatAnnotations([{ job: 'x', list: [] }]), []);
 });
+
+test('fmtSize', async () => {
+  const { fmtSize } = await import('../lib/render.js');
+  assert.equal(fmtSize(512), '512 B');
+  assert.equal(fmtSize(1536), '1.5 KB');
+  assert.equal(fmtSize(50 * 1024 * 1024), '50 MB');
+});

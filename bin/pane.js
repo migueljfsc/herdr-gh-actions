@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import { loadConfig, configDir, LAYOUTS } from '../lib/config.js';
+import { loadConfig, configDir, expandHome, LAYOUTS } from '../lib/config.js';
+import { homedir } from 'node:os';
 import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
@@ -8,7 +9,7 @@ import { withPath } from '../lib/exec.js';
 import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun, FAIL } from '../lib/state.js';
 import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
 import { runningDaemon } from '../lib/daemon-ctl.js';
-import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, wrapLines, clampTop, followSelection } from '../lib/render.js';
+import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
 import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
 
@@ -89,7 +90,7 @@ function hasMore() {
 }
 
 function footerModel() {
-  const it = S.view === 'list' ? S.items[selectedIndex()] : S.view === 'log' ? S.log : null;
+  const it = { list: S.items[selectedIndex()], log: S.log, picker: S.picker }[S.view] ?? null;
   return {
     status: S.status,
     confirm: S.confirm?.prompt,
@@ -505,23 +506,69 @@ function switchLayout(it) {
   flash(S.layout === 'flat' ? 'flat list' : 'grouped by commit', '2');
 }
 
-async function openPicker() {
-  if (!S.repo || !S.branch) return flash('no branch to run a workflow on', '33');
-  const title = `Run workflow on ${S.branch}`;
+// A list to pick from. load() → { items, empty }; pick(item) runs on Enter; verb labels Enter.
+async function showPicker({ title, verb, loading, load, pick }) {
+  const p = { title, verb, pick, items: [], selected: 0, top: 0, empty: loading };
   S.view = 'picker';
-  S.picker = { title, items: [], selected: 0, top: 0, empty: 'loading workflows…' };
+  S.picker = p;
   draw();
   try {
-    if (S.workflows?.branch !== S.branch) S.workflows = { branch: S.branch, list: await gh.workflows(S.repo.owner, S.repo.repo, S.branch) };
-    const items = S.workflows.list
-      .filter((w) => w.dispatchable)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((w) => ({ key: `wf:${w.id}`, workflow: w, depth: 0, glyph: ['▶', '36'], label: w.name, meta: w.path.split('/').pop() }));
-    S.picker = { title, items, selected: 0, top: 0, empty: `no workflow on ${S.branch} has a workflow_dispatch trigger` };
+    Object.assign(p, await load());
   } catch (e) {
-    S.picker = { title, items: [], selected: 0, top: 0, empty: `⚠ ${e.message}` };
+    Object.assign(p, { items: [], empty: `⚠ ${e.message}` });
   }
-  if (S.view === 'picker') draw();
+  if (S.view === 'picker' && S.picker === p) draw();
+}
+
+function openPicker() {
+  if (!S.repo || !S.branch) return flash('no branch to run a workflow on', '33');
+  return showPicker({
+    title: `Run workflow on ${S.branch}`,
+    verb: 'run',
+    loading: 'loading workflows…',
+    load: async () => {
+      if (S.workflows?.branch !== S.branch) S.workflows = { branch: S.branch, list: await gh.workflows(S.repo.owner, S.repo.repo, S.branch) };
+      const items = S.workflows.list
+        .filter((w) => w.dispatchable)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((w) => ({ key: `wf:${w.id}`, workflow: w, depth: 0, glyph: ['▶', '36'], label: w.name, meta: w.path.split('/').pop() }));
+      return { items, empty: `no workflow on ${S.branch} has a workflow_dispatch trigger` };
+    },
+    pick: (it) => askDispatch(it.workflow),
+  });
+}
+
+function openArtifacts(run) {
+  if (!run) return flash('select a run to see its artifacts', '33');
+  const dir = join(expandHome(config.artifact_dir), `${S.repo.repo}-${run.databaseId}`);
+  return showPicker({
+    title: `Artifacts of ${run.workflowName} #${run.databaseId}`,
+    verb: 'download',
+    loading: 'loading artifacts…',
+    load: async () => {
+      const list = await gh.artifacts(S.repo.owner, S.repo.repo, run.databaseId);
+      const items = list.map((a) => ({
+        key: `artifact:${a.id}`,
+        artifact: a,
+        depth: 0,
+        glyph: a.expired ? ['–', '2'] : ['↓', '36'],
+        label: a.name,
+        meta: [fmtSize(a.size_in_bytes), a.expired ? 'expired' : null].filter(Boolean).join(' · '),
+        dim: a.expired,
+      }));
+      return { items, empty: run.status === 'completed' ? 'no artifacts' : 'no artifacts yet (run still going)' };
+    },
+    pick: async ({ artifact: a }) => {
+      if (a.expired) return flash(`${a.name} has expired`, '33');
+      flash(`downloading ${a.name}…`, '2');
+      try {
+        const to = await gh.download(S.repo.owner, S.repo.repo, run.databaseId, a, dir);
+        flash(`saved ${a.name} to ${to.replace(homedir(), '~')}`);
+      } catch (e) {
+        flash(`⚠ ${e.message}`, '33');
+      }
+    },
+  });
 }
 
 function askDispatch(w) {
@@ -573,7 +620,7 @@ async function handle({ action, y, ch }) {
     } else if (action === 'click') {
       const row = p.top + (y - 3);
       if (row >= 0 && row < p.items.length) p.selected = row;
-    } else if (action === 'enter' && p.items[p.selected]) return askDispatch(p.items[p.selected].workflow);
+    } else if (action === 'enter' && p.items[p.selected]) return p.pick(p.items[p.selected]);
     return draw();
   }
   if (S.view === 'log') {
@@ -655,6 +702,8 @@ async function handle({ action, y, ch }) {
       return askRunAction(action, it?.run);
     case 'workflows':
       return openPicker();
+    case 'artifacts':
+      return openArtifacts(it?.run);
     case 'layout':
       switchLayout(it);
       break;

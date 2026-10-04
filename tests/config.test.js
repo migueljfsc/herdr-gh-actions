@@ -54,3 +54,15 @@ test('accountFor: exact (case-insensitive) beats *, null without match', () => {
   assert.equal(accountFor(acc, 'other'), 'me');
   assert.equal(accountFor({ X: 'x' }, 'other'), null);
 });
+
+test('artifact_dir: non-empty string, ~ expands to home', async () => {
+  const { expandHome } = await import('../lib/config.js');
+  assert.equal(normalize({}).config.artifact_dir, '~/Downloads');
+  assert.equal(normalize({ artifact_dir: ' /tmp/a ' }).config.artifact_dir, '/tmp/a');
+  const bad = normalize({ artifact_dir: '' });
+  assert.equal(bad.config.artifact_dir, '~/Downloads');
+  assert.match(bad.warnings[0], /artifact_dir/);
+  assert.equal(expandHome('~/Downloads', '/h'), '/h/Downloads');
+  assert.equal(expandHome('~', '/h'), '/h');
+  assert.equal(expandHome('/abs/~x', '/h'), '/abs/~x');
+});

@@ -52,8 +52,8 @@ test('hintsFor offers only the actions that apply to the selected row', async ()
   const keys = (h) => h.map(([k]) => k).join(' ');
   const done = { databaseId: 1, status: 'completed', conclusion: 'failure', workflowName: 'ci', displayTitle: 't', headSha: 'a' };
   const busy = { ...done, status: 'in_progress', conclusion: null };
-  assert.equal(keys(hintsFor('list', { type: 'run', run: done, expanded: false })), '↵ l f x X o');
-  assert.equal(keys(hintsFor('list', { type: 'run', run: busy, expanded: true })), '↵ l f c o');
+  assert.equal(keys(hintsFor('list', { type: 'run', run: done, expanded: false })), '↵ l f x X s o');
+  assert.equal(keys(hintsFor('list', { type: 'run', run: busy, expanded: true })), '↵ l f c s o');
   assert.equal(keys(hintsFor('list', { type: 'commit', commit: { sha: 'abcdef1', runs: [done] }, expanded: true })), '↵ x X o');
   assert.equal(keys(hintsFor('list', { type: 'step' })), '↵ o');
   assert.deepEqual(hintsFor('list', null), []);
