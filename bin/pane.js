@@ -7,7 +7,7 @@ import { createGit } from '../lib/git.js';
 import { createGh } from '../lib/gh.js';
 import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
-import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun, FAIL } from '../lib/state.js';
+import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun, groupByCommit, commitStatus, FAIL } from '../lib/state.js';
 import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
 import { runningDaemon } from '../lib/daemon-ctl.js';
 import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
@@ -86,6 +86,8 @@ const S = {
   // The branch's PR, read at most once per idle interval (R forces it): { branch, at, summary }.
   pr: null,
   prForce: false,
+  // The default branch and its newest commit's status, read like the PR: { name, at, status }.
+  base: null,
 };
 
 const DISPATCH_WATCH_MS = 120000;
@@ -136,7 +138,8 @@ function header() {
   if (!S.repo) return null;
   const st = deriveStatus({ runs: S.runs, head: S.oid, headTime: S.headTime, skipCi: S.skipCi, ahead: S.ahead, behind: S.behind, upstream: S.upstream, headSeenAt: S.headSeenAt, pushedGraceMs: config.pushed_grace_seconds * 1000 });
   const pr = S.pr?.branch === S.branch ? S.pr.summary : null;
-  return { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, headShort: S.oid?.slice(0, 7), pushed: st.kind === 'pushed', ahead: S.ahead, pr };
+  const base = S.base?.status && S.base.name !== S.branch ? S.base : null;
+  return { owner: S.repo.owner, repo: S.repo.repo, branch: S.branch, headShort: S.oid?.slice(0, 7), pushed: st.kind === 'pushed', ahead: S.ahead, pr, base };
 }
 
 function draw() {
@@ -254,6 +257,7 @@ async function refresh() {
       S.expandedJobs.clear();
       S.jobsByRun.clear();
       S.firstLoad = true;
+      S.prForce = true;
     }
     Object.assign(S, { branch: bs?.head ?? null, oid: bs?.oid ?? null, headTime: bs?.time ?? null, skipCi: bs?.skipCi ?? false, ahead: bs?.ahead ?? null, behind: bs?.behind ?? null, upstream: bs?.upstream ?? null });
     if (!S.branch) {
@@ -274,6 +278,7 @@ async function refresh() {
     S.runs = sortRuns(runs);
     S.empty = 'no runs for this branch';
     refreshPr(S.prForce);
+    refreshBase(S.prForce);
     S.prForce = false;
     followNewestCommit();
     await loadSubjects();
@@ -315,6 +320,20 @@ function refreshPr(force = false) {
       draw();
     })
     .catch(() => {});
+}
+
+// Status of the default branch's newest commit, for the header while on another branch.
+function refreshBase(force = false) {
+  if (!force && S.base?.at && Date.now() - S.base.at < config.idle_poll_seconds * 1000) return;
+  S.base = { ...S.base, at: Date.now() };
+  (async () => {
+    S.base.name ??= (await git.defaultBranch(S.repo.root)) ?? (await gh.defaultBranch(S.repo.owner, S.repo.repo));
+    if (!S.base.name || S.base.name === S.branch) return;
+    const { runs } = await gh.runList(S.repo.owner, S.repo.repo, S.base.name, config.runs_per_branch);
+    const newest = groupByCommit(runs)[0];
+    S.base.status = newest ? commitStatus(newest.runs) : null;
+    draw();
+  })().catch(() => {});
 }
 
 async function loadSubjects() {

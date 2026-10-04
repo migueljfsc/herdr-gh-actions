@@ -83,7 +83,7 @@ for (const cols of [40, 80, 120]) {
     const lines = renderPane(model(), cols, 12);
     assert.equal(lines.length, 12);
     for (const l of lines) assert.equal(w(l), cols, JSON.stringify(strip(l)));
-    assert.match(strip(lines[0]), /^migueljfsc\/herdr-gh-actions/);
+    assert.match(strip(lines[0]), /^(migueljfsc\/)?herdr-gh-actions · /);
     assert.match(strip(lines[3]), /✗ test/);
   });
 
@@ -298,4 +298,18 @@ test('prSegments: number, review, merge state, failing external checks', async (
   assert.equal(text({ ...pr, state: 'MERGED' }), '  #12 · merged');
   const lines = renderPane({ header: { owner: 'o', repo: 'r', branch: 'b', pr }, view: 'list', items: [], footer: { actions: [], bands: [] } }, 80, 4);
   assert.match(lines[0], /#12/);
+});
+
+test('header shows the default branch status', () => {
+  const head = (base) => renderPane({ header: { owner: 'o', repo: 'r', branch: 'b', base }, view: 'list', items: [], footer: { actions: [], bands: [] } }, 60, 4)[0].replace(/\x1b\[[0-9;]*m/g, '');
+  assert.match(head({ name: 'main', status: 'failure' }), /o\/r · b  main ✗/);
+  assert.match(head({ name: 'main', status: 'running' }), /main ◌/);
+  assert.doesNotMatch(head(null), /main/);
+});
+
+test('narrow header drops the sha, then the owner', () => {
+  const head = (w) => renderPane({ header: { owner: 'owner', repo: 'repo', branch: 'feat', headShort: 'abc1234', base: { name: 'main', status: 'success' } }, view: 'list', items: [], footer: { actions: [], bands: [] } }, w, 4)[0].replace(/\x1b\[[0-9;]*m/g, '').trimEnd();
+  assert.equal(head(60), 'owner/repo · feat · abc1234  main ✓');
+  assert.equal(head(28), 'owner/repo · feat  main ✓');
+  assert.equal(head(20), 'repo · feat  main ✓');
 });
