@@ -9,8 +9,8 @@ import { createHerdr } from '../lib/herdr.js';
 import { withPath } from '../lib/exec.js';
 import { deriveStatus, sortRuns, runAction, commitAction, findDispatchedRun, groupByCommit, commitStatus, FAIL } from '../lib/state.js';
 import { sessionDir, stateRoot, readJson, writeJsonAtomic } from '../lib/session.js';
-import { runningDaemon } from '../lib/daemon-ctl.js';
-import { renderPane, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
+import { runningDaemon, codeIdentity } from '../lib/daemon-ctl.js';
+import { renderPane, paneTitle, buildItems, buildFlatItems, footerHeight, formatLog, formatAnnotations, fmtSize, wrapLines, clampTop, followSelection } from '../lib/render.js';
 import { keyStream, hintsFor, bandsFor } from '../lib/keys.js';
 import { matchLines, errorLines, stepIndex } from '../lib/search.js';
 import { failedSteps, buildExcerpt, agentPrompt, agentTargets, pruneExcerpts } from '../lib/excerpt.js';
@@ -981,7 +981,7 @@ function setup() {
   });
   setInterval(() => anyActive() && S.view === 'list' && draw(), 1000).unref();
   for (const sig of ['SIGTERM', 'SIGHUP', 'SIGINT']) process.on(sig, () => quit({ close: false }));
-  if (inline && process.env.HERDR_PANE_ID) createHerdr().call(['pane', 'rename', process.env.HERDR_PANE_ID, 'GH Actions']).catch(() => {});
+  if (process.env.HERDR_PANE_ID) createHerdr().call(['pane', 'rename', process.env.HERDR_PANE_ID, paneTitle(codeIdentity().version)]).catch(() => {});
 }
 
 function restore() {
