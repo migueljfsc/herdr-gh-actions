@@ -144,11 +144,13 @@ action asks `y/n` first and names the runs it acts on.
 `<artifact_dir>/<repo>-<run id>/<name>`.
 
 **Agents.** `a` on a failed run or job writes an excerpt (annotations and the last 80 lines of each
-failed step) to `$HERDR_PLUGIN_STATE_DIR/excerpts/` and types a prompt pointing at it into an agent
+failed step, each line cut to 500 characters, the file capped at `excerpt_max_bytes`) to
+`$HERDR_PLUGIN_STATE_DIR/excerpts/` and types a prompt pointing at it into an agent
 pane, left for you to submit. Agents whose checkout is this repo come first, then agents in the same
 workspace; it asks which one when there are several, and confirms when there is one. The log text
 comes from your CI, so treat it like any other input you hand an agent, especially on PRs from forks.
-Excerpts are readable only by you and are removed after a week.
+Excerpts are readable only by you. The pane keeps the `excerpt_keep` newest and removes any older
+than `excerpt_ttl_days`, each time it starts and after each `a`.
 
 ![Run a workflow on the current branch](docs/pane-dispatch.svg)
 
@@ -192,6 +194,9 @@ all keys optional:
   "pane_layout": "commit",
   "pushed_grace_seconds": 300,
   "artifact_dir": "~/Downloads",
+  "excerpt_max_bytes": 1048576,
+  "excerpt_ttl_days": 7,
+  "excerpt_keep": 20,
   "accounts": { "my-work-org": "my-work-login", "*": "my-personal-login" }
 }
 ```
@@ -206,6 +211,9 @@ all keys optional:
 | `pane_layout` | `commit` | pane layout until you first press `v`: `commit` or `flat` |
 | `pushed_grace_seconds` | 300 | how long `↑ pushed` waits for a run before showing the last run's status |
 | `artifact_dir` | `~/Downloads` | where `s` saves artifacts, in a `<repo>-<run id>` folder |
+| `excerpt_max_bytes` | 1048576 | size cap of one `a` excerpt file (1 KB – 100 MB) |
+| `excerpt_ttl_days` | 7 | days an excerpt is kept |
+| `excerpt_keep` | 20 | excerpts kept at most; the oldest go first |
 | `accounts` | `{}` | repo owner → `gh` login; `*` is the fallback |
 
 **Accounts.** Without `accounts`, `gh`'s active account is used for everything. Reading public repos
