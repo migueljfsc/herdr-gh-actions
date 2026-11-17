@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenText, fmtDuration, fit, formatLog, wrapLines, renderPane, followSelection } from '../lib/render.js';
+import { tokenText, prTokenText, fmtDuration, fit, formatLog, wrapLines, renderPane, followSelection } from '../lib/render.js';
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
 const w = (s) => [...strip(s)].length;
@@ -30,6 +30,20 @@ test('token text per kind, ≤ 80 chars', () => {
     assert.equal(t, want);
     if (t) assert.ok([...t].length <= 80);
   }
+});
+
+test('pr token text per state', () => {
+  const cases = [
+    [null, null],
+    [{ number: 7, state: 'OPEN' }, '#7'],
+    [{ number: 7, state: 'OPEN', draft: true, review: 'REVIEW_REQUIRED' }, '#7 draft'],
+    [{ number: 7, state: 'OPEN', review: 'REVIEW_REQUIRED' }, '#7 review'],
+    [{ number: 7, state: 'OPEN', review: 'APPROVED' }, '#7 ✓'],
+    [{ number: 7, state: 'OPEN', review: 'CHANGES_REQUESTED' }, '#7 ✗'],
+    [{ number: 7, state: 'MERGED', review: 'APPROVED' }, '#7 merged'],
+    [{ number: 7, state: 'CLOSED' }, '#7 closed'],
+  ];
+  for (const [pr, want] of cases) assert.equal(prTokenText(pr), want);
 });
 
 test('fit truncates with ellipsis and pads', () => {

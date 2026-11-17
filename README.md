@@ -12,6 +12,7 @@ back to the agent that caused it in one key.
 ![Commits, runs, jobs and steps for the current branch](docs/pane-runs.svg)
 
 - **Sidebar token** `$ci` per workspace and per agent pane: `↑ pushed` · `◌ CI 2m` · `✓ CI` · `✗ CI` · `⚠ CI`
+- **Sidebar token** `$pr` for the branch's pull request: `#7` · `#7 draft` · `#7 review` · `#7 ✓` · `#7 ✗` · `#7 merged` · `#7 closed`
 - **Pane** with the branch's commits → runs → jobs → steps, full or failed-only logs with search and
   annotations, grouped by commit or as a flat list; the header shows the branch's PR and the default
   branch's status
@@ -84,15 +85,17 @@ running poller onto the new version; no herdr restart needed.
 
 ### Sidebar tokens
 
-Add `$ci` to your sidebar rows in `~/.config/herdr/config.toml`, then `herdr server reload-config`.
-Spaces show the workspace's branch; agent rows show the branch the agent's pane is in.
+Add `$ci` and `$pr` to your sidebar rows in `~/.config/herdr/config.toml`, then
+`herdr server reload-config`. Spaces show the workspace's branch; agent rows show the branch the
+agent's pane is in. `$pr` shows the pull request of a branch that has an upstream: its number, then
+`draft`, `review` (review required), `✓` (approved), `✗` (changes requested), `merged` or `closed`.
 
 ```toml
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], ["branch", "git_status", { token = "$ci", bold = true }]]
+rows = [["state_icon", "workspace"], ["branch", "git_status", { token = "$ci", bold = true }, "$pr"]]
 
 [ui.sidebar.agents]
-rows = [["state_icon", "machine", "workspace", "tab"], ["agent", "$ci"]]
+rows = [["state_icon", "machine", "workspace", "tab"], ["agent", "$ci", "$pr"]]
 ```
 
 ### Opening the pane
@@ -273,7 +276,8 @@ authenticated `gh` there). Its poller reports tokens for that machine's workspac
   `status.json`), and it exits when its session's socket goes away.
 - Each tick: `herdr pane list` → the git checkout of each workspace (the first pane cwd inside a
   GitHub repo; ssh host aliases resolved with `ssh -G`) and of each agent pane → per checkout,
-  `git status --porcelain=v2 --branch` → the branch's runs (once per repo and branch) → tokens through
+  `git status --porcelain=v2 --branch` → the branch's runs (once per repo and branch) and, once per
+  idle interval, its pull request (`gh pr view`) → tokens through
   `herdr workspace|pane report-metadata`, with a TTL of 3× the poll interval.
 - Runs are read through `gh api` with `If-None-Match`: an unchanged list comes back as `304 Not
   Modified`, free of rate-limit cost. When the limit is hit, the poller

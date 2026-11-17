@@ -239,8 +239,9 @@ test('deployment review argv builders', async () => {
 });
 
 test('prForBranch: null when the branch has no PR', async () => {
-  const { prViewArgs, PR_FIELDS } = await import('../lib/gh.js');
+  const { prViewArgs, PR_FIELDS, PR_TOKEN_FIELDS } = await import('../lib/gh.js');
   assert.deepEqual(prViewArgs('o', 'r', 'feat/x'), ['pr', 'view', 'feat/x', '-R', 'o/r', '--json', PR_FIELDS]);
+  assert.deepEqual(prViewArgs('o', 'r', 'feat/x', PR_TOKEN_FIELDS), ['pr', 'view', 'feat/x', '-R', 'o/r', '--json', PR_TOKEN_FIELDS]);
   const gh = createGh({ exec: async () => ({ code: 1, stdout: '', stderr: 'no pull requests found for branch "feat/x"' }), baseEnv: {} });
   assert.equal(await gh.prForBranch('o', 'r', 'feat/x'), null);
   const gh2 = createGh({ exec: async () => ({ code: 0, stdout: '{"number":3}', stderr: '' }), baseEnv: {} });

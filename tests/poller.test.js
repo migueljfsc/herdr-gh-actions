@@ -5,11 +5,12 @@ import { normalize } from '../lib/config.js';
 
 const T0 = Date.parse('2026-10-03T12:00:00Z');
 
-function setup({ panes, runs = {}, branch = { oid: 'aaa', head: 'main', upstream: 'origin/main', ahead: 0 } }) {
+function setup({ panes, runs = {}, prs = {}, branch = { oid: 'aaa', head: 'main', upstream: 'origin/main', ahead: 0 } }) {
   let clock = T0;
   const reports = [];
   const notes = [];
   const ghCalls = [];
+  const prCalls = { count: 0 };
   const herdr = {
     paneList: async () => panes,
     reportToken: async (ws, o) => reports.push({ ws, ...o }),
@@ -25,10 +26,15 @@ function setup({ panes, runs = {}, branch = { oid: 'aaa', head: 'main', upstream
       ghCalls.push(b);
       return { runs: runs.current ?? [], authWarning: false };
     },
+    prForBranch: async () => {
+      prCalls.count++;
+      if (prs.error) throw new Error(prs.error);
+      return prs.current ?? null;
+    },
   };
   const { config } = normalize({});
   const p = createPoller({ herdr, git, gh, config, now: () => clock });
-  return { p, reports, notes, ghCalls, runs, branch, advance: (ms) => (clock += ms), now: () => clock };
+  return { p, reports, notes, ghCalls, prCalls, runs, prs, branch, advance: (ms) => (clock += ms), now: () => clock };
 }
 
 const panes = [
@@ -187,7 +193,7 @@ test('agent panes get their own checkout status; plain panes get none', async ()
       branchState: async (root) =>
         root === '/wt/feat' ? { oid: 'bbb', head: 'feat/x', upstream: 'origin/feat/x', ahead: 0 } : { oid: 'aaa', head: 'main', upstream: 'origin/main', ahead: 0 },
     },
-    gh: { runList: async (o, r, branch) => ({ runs: runsFor[branch], authWarning: false }) },
+    gh: { runList: async (o, r, branch) => ({ runs: runsFor[branch], authWarning: false }), prForBranch: async () => null },
     config,
     now: () => T0,
   });
@@ -208,4 +214,40 @@ test('metadataArgs for workspace and pane', async () => {
   assert.deepEqual(metadataArgs('workspace', 'w1', { source: 's', name: 'ci', value: null, ttlMs: 30000, seq: 6 }), [
     'workspace', 'report-metadata', 'w1', '--source', 's', '--clear-token', 'ci', '--seq', '6',
   ]);
+});
+
+test('pr token follows the branch pull request, read once per idle interval', async () => {
+  const s = setup({ panes, runs: { current: [mkRun()] }, prs: { current: { number: 7, state: 'OPEN', isDraft: false, reviewDecision: 'REVIEW_REQUIRED' } } });
+  await s.p.tick();
+  assert.deepEqual(s.reports.map((r) => [r.ws, r.name, r.value]), [['w1', 'ci', '✓ CI'], ['w1', 'pr', '#7 review']]);
+  s.advance(30000);
+  await s.p.tick({ force: false });
+  assert.equal(s.prCalls.count, 1);
+  s.prs.current = { number: 7, state: 'OPEN', isDraft: false, reviewDecision: 'APPROVED' };
+  s.advance(30000);
+  await s.p.tick();
+  assert.equal(s.prCalls.count, 2);
+  assert.deepEqual(s.reports.at(-1).value, '#7 ✓');
+});
+
+test('pr token is cleared when the pull request is gone, kept when the lookup fails', async () => {
+  const s = setup({ panes, runs: { current: [mkRun()] }, prs: { current: { number: 7, state: 'OPEN' } } });
+  await s.p.tick();
+  assert.equal(s.reports.at(-1).value, '#7');
+  s.prs.error = 'boom';
+  s.advance(60000);
+  await s.p.tick();
+  assert.equal(s.reports.filter((r) => r.name === 'pr').at(-1).value, '#7');
+  s.prs.error = null;
+  s.prs.current = null;
+  s.advance(60000);
+  await s.p.tick();
+  assert.equal(s.reports.filter((r) => r.name === 'pr').at(-1).value, null);
+});
+
+test('no pr lookup for a branch without an upstream', async () => {
+  const s = setup({ panes, runs: { current: [mkRun()] }, branch: { oid: 'aaa', head: 'feat/x', upstream: null, ahead: 0 } });
+  await s.p.tick();
+  assert.equal(s.prCalls.count, 0);
+  assert.equal(s.reports.some((r) => r.name === 'pr'), false);
 });
