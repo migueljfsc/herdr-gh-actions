@@ -1,3 +1,9 @@
+## v1.4.0 (2026-11-17)
+
+### Feat
+
+- $pr sidebar token with the branch pull request state
+
 ## v1.3.0 (2026-10-04)
 
 ### Feat
